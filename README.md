@@ -41,6 +41,7 @@
 ├── README.md
 ├── src/                        # Opt-1~5 核心引擎、预算、门控与归因模块
 ├── scripts/                    # 单元测试、验证脚本、Opt-1 回滚与 Opt-2 清理脚本
+│   └── patches/                # Opt-1~5 生产补丁脚本（apply_opt1_and_cost / apply_opt1_hardening / apply_opt45_patches / apply_static_context_dedup / patch-dsh-session-guard 等）
 └── docs/
     ├── phase0/                 # KV Cache 前缀验证与静态上下文审计报告
     └── phase1/                 # 全链 Token 审计与 Opt-1~6 优化方案总报告
