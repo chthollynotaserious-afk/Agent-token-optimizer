@@ -1,0 +1,9 @@
+{
+  "name": "denia-token-optimizer",
+  "version": "1.0.0",
+  "description": "Denia high KV-cache hit rate (95%+) and low-token-consumption context optimization core (Opt-1 through Opt-5).",
+  "type": "module",
+  "scripts": {
+    "test": "node --test scripts/test-context-selector.mjs scripts/test_cost_calc.mjs"
+  }
+}
