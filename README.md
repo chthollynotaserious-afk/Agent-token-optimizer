@@ -19,9 +19,9 @@
 
 | 优化代号 | 核心机制 | 关键代码与脚本 | 实测 / 设计收益 |
 | :--- | :--- | :--- | :--- |
-| **Opt-1** | **无损会话轮转 + 原生滑窗交接**<br>私聊 30 轮 / 群聊 25 轮 / 闲置 >4h 且轮数 >=4 自动新建干净会话，首轮仅注入 <=6 条原生对话切片（不写情绪数值） | `scripts/rollback_opt1.mjs`（双回滚点）<br>*(主逻辑集成于 `bridge.js`)* | 把日均 `14` 次高价 Compaction 压至近 0（预估省 `¥7.2–¥9.2/天`） |
+| **Opt-1** | **无损会话轮转 + 原生滑窗交接**<br>私聊 30 轮 / 群聊 25 轮 / 闲置 >4h 且轮数 >=4 自动新建干净会话，首轮仅注入 <=6 条原生对话切片（不写情绪数值） | `src/session-rotation.js`（已从 `bridge.js` 抽离）<br>`scripts/rollback_opt1.mjs`（双回滚点） | 把日均 `14` 次高价 Compaction 压至近 0（预估省 `¥7.2–¥9.2/天`） |
 | **Opt-2** | **死工具清理与场景 Schema 隔离**<br>下线 `mcp-onebot-min`（19 死工具），按主人 / 群聊 / 后台任务隔离工具表，并追踪工具调用成本 | `src/tool-cost-attribution.js`<br>`scripts/remote-opt2-remove-onebot-min.mjs` | 每步直降 `6,827` 字符并消除报错（预估省 `¥1.6–¥2.2/天`） |
-| **Opt-3** | **静态上下文去重 + KV Cache 前缀保护**<br>会话内静态块只注一次，跨轮去重（私聊 25 轮 / 群聊 12 轮刷新）；严守 `thresholdRatio: 0.22` | `src/prompt-fingerprint.js`<br>`scripts/test-opt3-expand.mjs`<br>`scripts/phase0_static_context_verify.mjs` | 实测稳定净省 **`7,718` 字符/轮**，`base` 从 `14,788` 降至 `6,950` |
+| **Opt-3** | **静态上下文去重 + KV Cache 前缀保护**<br>会话内静态块只注一次，跨轮去重（私聊 25 轮 / 群聊 12 轮刷新）；严守 `thresholdRatio: 0.22` | `src/static-context-dedup.js`（已从 `bridge.js` 抽离）<br>`src/prompt-fingerprint.js`<br>`scripts/test-opt3-expand.mjs`<br>`scripts/phase0_static_context_verify.mjs` | 实测稳定净省 **`7,718` 字符/轮**，`base` 从 `14,788` 降至 `6,950` |
 | **Opt-4** | **主动唤醒轻量前置门控**<br>在唤醒 LLM 前先跑本地评分门控与冷却检查，拦截闲群零出站空转 | `src/proactive-gate.js`<br>`src/proactive-policy.js`<br>`src/proactive-config.js` | 砍掉 54% 零出站冷唤醒（预估省 `¥1.4–¥1.9/天`） |
 | **Opt-5** | **回合收尾与控制步节流**<br>合并多气泡发送、控制动作折叠、去除多余强制等待回合 | `src/turn-end-policy.js`<br>`src/turn-guard.js`<br>`src/v2-wait.js`<br>`src/priority-budget.js` | 削减串行 `tool-continuation` 续跳（预估省 `¥1.8–¥2.5/天`） |
 
