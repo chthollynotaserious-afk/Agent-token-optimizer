@@ -76,7 +76,7 @@ export function buildUniversalHandoff(recentMessages = [], opts = {}) {
   if (opts.includeRecallHint !== false) {
     parts.push(
       opts.recallHint
-      || '[Recall Hint] Earlier conversation history is archived by sessionId; use recall/retrieval tools if prior details are referenced.'
+      || '[Recall Hint] Earlier conversation history is archived by sessionId; use uao_recall_memory(query) / retrieval tools if prior details are referenced.'
     );
   }
   if (opts.protocolReminder) {

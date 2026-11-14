@@ -121,6 +121,7 @@ export interface PreparedRequest {
   emittedSubBlocks: Record<string, unknown>;
   emittedItems: unknown[];
   stateSignals: Record<string, unknown>;
+  recalledMemories?: Record<string, unknown> | null;
   messages: AgentMessage[];
   tools: Array<Record<string, unknown>>;
   toolGovernance: Record<string, unknown>;
@@ -161,11 +162,27 @@ export interface OptimizerMetrics {
   costComparison: ReturnType<CostTracker['report']>;
   cache: ReturnType<CacheTracker['stats']>;
   auditCount: number;
+  memory?: {
+    records: number;
+    archives: number;
+  };
 }
 
 export class UniversalAgentOptimizer {
+  memoryStore: UniversalMemoryStore;
   constructor(config?: Record<string, unknown>);
   beforeWake(triggerEvent: Record<string, unknown>): Promise<Record<string, unknown>>;
+  getBuiltinTools(opts?: {
+    format?: 'openai' | 'anthropic' | 'mcp';
+    includeRetrieve?: boolean;
+    includeRecall?: boolean;
+  }): Array<Record<string, unknown>>;
+  executeBuiltinToolCall(
+    call: Record<string, unknown>,
+    trustedCtx?: Record<string, unknown>
+  ): Record<string, unknown>;
+  extractAndSaveMemory(opts?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  recallMemory(opts?: Record<string, unknown>): Record<string, unknown>;
   prepareRequest(ctx?: PrepareRequestContext): Promise<PreparedRequest>;
   manageToolResult(
     toolCall: Record<string, unknown>,
@@ -183,12 +200,16 @@ export class UniversalAgentOptimizer {
   ): Promise<LedgerEntry>;
   optimizeRequest(
     ctx: PrepareRequestContext & {
+      handleBuiltinTools?: boolean;
+      maxToolRounds?: number;
       invokeUpstream: (preparedPayload: Record<string, unknown>) => Promise<OptimizerResponse>;
     }
   ): Promise<{
     response: OptimizerResponse;
     prepared: PreparedRequest;
     entry: LedgerEntry;
+    builtinToolRounds?: number;
+    executedBuiltinTools?: Array<Record<string, unknown>>;
     telemetry: Record<string, unknown>;
   }>;
   getMetrics(): OptimizerMetrics;
@@ -295,12 +316,71 @@ export function canAccessScope(
   record: Record<string, unknown>,
   requestCtx: Record<string, unknown>
 ): boolean;
+export function redactSecrets(text?: string): string;
 export function selectUniversalContext(opts: {
   records?: Array<Record<string, unknown>>;
   requestCtx?: Record<string, unknown>;
   maxChars?: number;
   [key: string]: unknown;
 }): Record<string, unknown>;
+
+export function extractTextContent(content: unknown): string;
+export function tokenizeKeywords(text?: string): string[];
+export function extractMemoriesFromMessages(
+  messages?: Array<Record<string, unknown>>,
+  opts?: Record<string, unknown>
+): Array<Record<string, unknown>>;
+
+export class UniversalMemoryStore {
+  size: number;
+  records: Array<Record<string, unknown>>;
+  archives: Array<Record<string, unknown>>;
+  constructor(opts?: {
+    file?: string | null;
+    maxEntries?: number;
+    maxArchives?: number;
+    summarizeFn?: ((ctx: Record<string, unknown>) => Promise<unknown> | unknown) | null;
+    now?: () => number;
+  });
+  addMemory(item?: Record<string, unknown>): Record<string, unknown> | null;
+  addMemories(items?: Array<Record<string, unknown>>): Array<Record<string, unknown>>;
+  flushSession(opts?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  hasVerificationToken(token?: string | null): boolean;
+  recall(opts?: Record<string, unknown>): Record<string, unknown>;
+}
+
+export const BUILTIN_TOOL_NAMES: Readonly<{
+  RETRIEVE_TOOL_OUTPUT: string;
+  RECALL_MEMORY: string;
+}>;
+export function getBuiltinToolSpecs(opts?: {
+  includeRetrieve?: boolean;
+  includeRecall?: boolean;
+}): Array<Record<string, unknown>>;
+export function formatBuiltinTools(
+  specs?: Array<Record<string, unknown>>,
+  format?: 'openai' | 'anthropic' | 'mcp'
+): Array<Record<string, unknown>>;
+export function isBuiltinToolName(name?: string): boolean;
+export function extractToolCalls(response: unknown): Record<string, unknown> | null;
+export function executeBuiltinToolCall(
+  optimizer: UniversalAgentOptimizer,
+  call: Record<string, unknown>,
+  trustedCtx?: Record<string, unknown>
+): Record<string, unknown>;
+export function runBuiltinToolLoop(opts: {
+  optimizer: UniversalAgentOptimizer;
+  initialPayload: Record<string, unknown>;
+  meta?: Record<string, unknown>;
+  invokeUpstream: (payload: Record<string, unknown>, round: number) => Promise<Record<string, unknown>>;
+  onResponse?: ((response: Record<string, unknown>, payload: Record<string, unknown>, round: number) => Promise<void> | void) | null;
+  maxRounds?: number;
+}): Promise<{
+  response: Record<string, unknown>;
+  rounds: number;
+  executedCalls: Array<Record<string, unknown>>;
+  finalPayload: Record<string, unknown>;
+}>;
 
 export class BaseAgentAdapter {
   constructor(opts?: { name?: string; optimizer?: UniversalAgentOptimizer });
@@ -318,6 +398,11 @@ export class OpenAICompatibleAdapter extends BaseAgentAdapter {
     payload?: Record<string, unknown>,
     meta?: Record<string, unknown>
   ): Promise<{ payload: Record<string, unknown>; prepared: PreparedRequest }>;
+  runWithTools(
+    payload: Record<string, unknown>,
+    invokeUpstreamFn: (payload: Record<string, unknown>, prepared: PreparedRequest, round: number) => Promise<Record<string, unknown>>,
+    meta?: Record<string, unknown>
+  ): Promise<Record<string, unknown>>;
   recordResponse(
     meta?: Record<string, unknown>,
     response?: Record<string, unknown>,
@@ -331,6 +416,11 @@ export class AnthropicAdapter extends BaseAgentAdapter {
     payload?: Record<string, unknown>,
     meta?: Record<string, unknown>
   ): Promise<{ payload: Record<string, unknown>; prepared: PreparedRequest }>;
+  runWithTools(
+    payload: Record<string, unknown>,
+    invokeUpstreamFn: (payload: Record<string, unknown>, prepared: PreparedRequest, round: number) => Promise<Record<string, unknown>>,
+    meta?: Record<string, unknown>
+  ): Promise<Record<string, unknown>>;
   recordResponse(
     meta?: Record<string, unknown>,
     response?: Record<string, unknown>,
@@ -339,10 +429,10 @@ export class AnthropicAdapter extends BaseAgentAdapter {
 }
 
 export class CustomAgentAdapter extends BaseAgentAdapter {
-  constructor(opts?: { optimizer?: UniversalAgentOptimizer });
-  wrapTurn(
+  constructor(opts?: { optimizer?: UniversalAgentOptimizer; agentId?: string });
+  runTurn(
     ctx: PrepareRequestContext,
-    runner: (prepared: PreparedRequest) => Promise<OptimizerResponse>
+    invokeModelFn: (prepared: PreparedRequest) => Promise<OptimizerResponse>
   ): Promise<Record<string, unknown>>;
 }
 
@@ -352,6 +442,12 @@ export class MCPToolAdapter {
     toolCall: Record<string, unknown>,
     executor: (call: Record<string, unknown>) => Promise<unknown>,
     opts?: Record<string, unknown>
+  ): Promise<Record<string, unknown>>;
+  getBuiltinTools(opts?: Record<string, unknown>): Array<Record<string, unknown>>;
+  handleBuiltinToolCall(
+    name: string,
+    args?: Record<string, unknown>,
+    ctx?: Record<string, unknown>
   ): Promise<Record<string, unknown>>;
 }
 
@@ -443,4 +539,6 @@ export function createProxyServer(opts: {
   upstreamBaseUrl: string;
   provider?: string;
   fetchImpl?: typeof fetch;
+  autoExecuteBuiltinTools?: boolean;
+  maxBuiltinToolRounds?: number;
 }): http.Server;

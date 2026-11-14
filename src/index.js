@@ -38,7 +38,22 @@ export {
   DEFAULT_UNIVERSAL_DEDUP_CONFIG,
 } from './core/static-context-dedup.js';
 export { ToolResultRetentionStore } from './core/tool-output-retention.js';
-export { canAccessScope, selectUniversalContext } from './core/context-selector.js';
+export { canAccessScope, redactSecrets, selectUniversalContext } from './core/context-selector.js';
+export {
+  UniversalMemoryStore,
+  extractMemoriesFromMessages,
+  extractTextContent,
+  tokenizeKeywords,
+} from './core/memory-store.js';
+export {
+  BUILTIN_TOOL_NAMES,
+  getBuiltinToolSpecs,
+  formatBuiltinTools,
+  isBuiltinToolName,
+  extractToolCalls,
+  executeBuiltinToolCall,
+  runBuiltinToolLoop,
+} from './core/builtin-tools.js';
 
 export { BaseAgentAdapter } from './adapters/base.js';
 export { OpenAICompatibleAdapter } from './adapters/openai-compatible.js';

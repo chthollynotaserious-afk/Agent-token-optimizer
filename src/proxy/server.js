@@ -12,6 +12,7 @@ import http from 'node:http';
 import { UniversalAgentOptimizer } from '../core/optimizer.js';
 import { OpenAICompatibleAdapter } from '../adapters/openai-compatible.js';
 import { AnthropicAdapter } from '../adapters/anthropic.js';
+import { runBuiltinToolLoop } from '../core/builtin-tools.js';
 
 function readJsonBody(req) {
   return new Promise((resolve, reject) => {
@@ -42,6 +43,8 @@ export function createProxyServer({
   upstreamBaseUrl,
   provider = 'openai',
   fetchImpl = globalThis.fetch,
+  autoExecuteBuiltinTools = true,
+  maxBuiltinToolRounds = 4,
 } = {}) {
   if (!upstreamBaseUrl) throw new Error('createProxyServer: upstreamBaseUrl is required');
   const activeOptimizer = optimizer || new UniversalAgentOptimizer();
@@ -71,7 +74,19 @@ export function createProxyServer({
 
         const isAnthropic = urlPath === '/v1/messages';
         const adapter = isAnthropic ? anthropicAdapter : openaiAdapter;
-        const meta = { agentId, sessionId, conversationKey, scene, provider: isAnthropic ? 'anthropic' : provider };
+        const autoToolsHeader = req.headers['x-uao-auto-tools'];
+        const meta = {
+          agentId,
+          sessionId,
+          conversationKey,
+          scope: String(req.headers['x-agent-scope'] || conversationKey),
+          tenantId: req.headers['x-tenant-id'] ? String(req.headers['x-tenant-id']) : null,
+          scene,
+          provider: isAnthropic ? 'anthropic' : provider,
+          toolFormat: isAnthropic ? 'anthropic' : 'openai',
+          ...(autoToolsHeader === 'true' ? { autoBuiltinTools: true } : {}),
+          ...(autoToolsHeader === 'false' ? { autoBuiltinTools: false } : {}),
+        };
 
         const { payload, prepared } = await adapter.transformRequest(body, meta);
 
@@ -80,23 +95,62 @@ export function createProxyServer({
         if (req.headers['x-api-key']) forwardHeaders['x-api-key'] = req.headers['x-api-key'];
         if (req.headers['anthropic-version']) forwardHeaders['anthropic-version'] = req.headers['anthropic-version'];
 
-        const upstreamRes = await fetchImpl(`${upstream}${urlPath}`, {
-          method: 'POST',
-          headers: forwardHeaders,
-          body: JSON.stringify(payload),
-        });
-        const responseJson = await upstreamRes.json();
+        let lastUpstreamStatus = 200;
+        let finalJson = null;
+        let builtinToolRounds = 0;
 
-        if (upstreamRes.ok) {
-          await adapter.recordResponse(meta, responseJson, prepared);
+        const callUpstream = async (currentPayload) => {
+          const upstreamRes = await fetchImpl(`${upstream}${urlPath}`, {
+            method: 'POST',
+            headers: forwardHeaders,
+            body: JSON.stringify(currentPayload),
+          });
+          lastUpstreamStatus = upstreamRes.status;
+          const json = await upstreamRes.json();
+          if (!upstreamRes.ok) {
+            return { ok: false, json };
+          }
+          return { ok: true, json };
+        };
+
+        if (autoExecuteBuiltinTools) {
+          let aborted = false;
+          const loopRes = await runBuiltinToolLoop({
+            optimizer: activeOptimizer,
+            initialPayload: payload,
+            meta,
+            maxRounds: maxBuiltinToolRounds,
+            invokeUpstream: async (currentPayload) => {
+              const out = await callUpstream(currentPayload);
+              if (!out.ok) {
+                aborted = true;
+                return { __uaoAbort: true, json: out.json };
+              }
+              return out.json;
+            },
+            onResponse: async (resJson, _p, round) => {
+              if (!aborted && !resJson?.__uaoAbort) {
+                await adapter.recordResponse(meta, resJson, round === 0 ? prepared : null);
+              }
+            },
+          });
+          finalJson = aborted ? loopRes.response?.json : loopRes.response;
+          builtinToolRounds = loopRes.rounds;
+        } else {
+          const out = await callUpstream(payload);
+          finalJson = out.json;
+          if (out.ok) {
+            await adapter.recordResponse(meta, finalJson, prepared);
+          }
         }
 
-        res.writeHead(upstreamRes.status, {
+        res.writeHead(lastUpstreamStatus, {
           'content-type': 'application/json; charset=utf-8',
           'x-uao-session-id': prepared.sessionId,
           'x-uao-cache-intact': String(prepared.cacheCheck.prefixIntact),
+          ...(builtinToolRounds > 0 ? { 'x-uao-builtin-tool-rounds': String(builtinToolRounds) } : {}),
         });
-        res.end(JSON.stringify(responseJson));
+        res.end(JSON.stringify(finalJson));
       } catch (err) {
         sendJson(res, 502, { error: 'proxy_error', message: err?.message || String(err) });
       }

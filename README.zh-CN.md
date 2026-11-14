@@ -116,6 +116,11 @@ proxy.listen(8787, '127.0.0.1');
 
 Python 3.9+ 零依赖客户端及 OpenAI SDK / LangGraph 接入示例见 [python/README.zh-CN.md](./python/README.zh-CN.md) 与 [python/uao_client.py](./python/uao_client.py)。
 
+### 4. 内置记忆提取持久化与自动挂载取回工具
+
+- **内置记忆提取与存储（`UniversalMemoryStore`）**：会话轮转时（或手动调用 `optimizer.extractAndSaveMemory()`）自动提取偏好、决策、故障与会话归档并写入可选 JSONL（`memoryFile`），自动脱敏密钥并在召回时执行 Fail-Closed 作用域隔离；若宿主 Agent 已有自己的 LLM 总结器，也可通过 `memoryExtractor` 直接接入。
+- **取回/召回工具自动注入与执行**：当出现大工具输出留存或已有历史记忆时，框架会自动将 `uao_retrieve_tool_output` 与 `uao_recall_memory` 工具 Schema 注入请求，并在 `optimizeRequest()`、`OpenAICompatibleAdapter.runWithTools()`、`AnthropicAdapter.runWithTools()`、`MCPToolAdapter.getBuiltinTools()` 及 `createProxyServer()` 代理中自动截获执行闭环。
+
 ---
 
 ## 仓库目录结构
@@ -139,6 +144,8 @@ src/
 │   ├── invocation-controller.js     # 事件去重、冷却退避、预算门控与紧急直通旁路
 │   ├── tool-governance.js           # 场景/角色工具裁剪、Schema 哈希与死工具熔断
 │   ├── tool-output-retention.js     # 大工具输出本地无损留存与按行/关键词召回
+│   ├── memory-store.js              # 内置记忆提取、JSONL 持久化归档与隔离召回
+│   ├── builtin-tools.js             # 自动挂载与执行的取回/记忆召回工具闭环
 │   ├── static-context-dedup.js      # 领域无关的静态上下文指纹去重
 │   └── context-selector.js          # 多租户 Fail-Closed Scope ACL 记忆/证据筛选
 ├── adapters/                        # OpenAI / Anthropic / Custom / MCP / LangGraph 适配器

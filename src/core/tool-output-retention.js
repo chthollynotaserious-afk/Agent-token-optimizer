@@ -73,7 +73,7 @@ export class ToolResultRetentionStore {
       head,
       '--- TAIL ---',
       tail,
-      `[Use retrieveToolResult("${refId}", { startLine, endLine, query }) to inspect omitted middle lines.]`,
+      `[Use tool uao_retrieve_tool_output({ refId: "${refId}", startLine, endLine, query }) to inspect omitted middle lines.]`,
     ].join('\n');
 
     return {

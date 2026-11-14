@@ -49,7 +49,7 @@ export function canAccessScope(record, requestCtx) {
   return false;
 }
 
-function redactText(text) {
+export function redactSecrets(text) {
   return String(text ?? '')
     .replace(/\b(?:sk-[a-zA-Z0-9_-]{12,}|ghp_[a-zA-Z0-9]{16,}|Bearer\s+[a-zA-Z0-9._-]+)\b/gi, '[REDACTED_SECRET]');
 }
@@ -90,7 +90,7 @@ export function selectUniversalContext({
   for (const r of deduped) {
     const id = String(r.id || r.recordId || '');
     if (!id || seenIds.has(id)) continue;
-    const text = redactText(r.text || '').trim();
+    const text = redactSecrets(r.text || '').trim();
     if (!text) continue;
     const line = `- ${r.title ? `[${r.title}] ` : ''}${text}`;
     if (!r.pinned && maxChars > 0 && usedChars + line.length + 1 > maxChars) continue;

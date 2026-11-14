@@ -116,6 +116,11 @@ proxy.listen(8787, '127.0.0.1');
 
 See [python/README.md](./python/README.md) and [python/uao_client.py](./python/uao_client.py) for zero-dependency Python 3.9+ and OpenAI/LangGraph SDK examples.
 
+### 4. Built-in Memory Extraction & Auto-Wired Retrieval Tools
+
+- **Built-in Memory Store (`UniversalMemoryStore`)**: Automatically extracts salient preferences, decisions, incidents, and session archives on session rotation (or manually via `optimizer.extractAndSaveMemory()`), persists to optional JSONL (`memoryFile`), redacts secrets, and enforces Fail-Closed scope ACL on recall. Agents that already have their own summarizer can plug in `memoryExtractor`.
+- **Auto-Wired Retrieval & Recall Tools**: When oversized tool outputs are retained or session memories exist, `uao_retrieve_tool_output` and `uao_recall_memory` are automatically injected into eligible tool schemas and dispatched seamlessly inside `optimizeRequest()`, `OpenAICompatibleAdapter.runWithTools()`, `AnthropicAdapter.runWithTools()`, `MCPToolAdapter.getBuiltinTools()`, and `createProxyServer()`.
+
 ---
 
 ## Repository Structure
@@ -139,6 +144,8 @@ src/
 │   ├── invocation-controller.js     # Dedup, backoff, budget gate, urgent priority bypass
 │   ├── tool-governance.js           # Scene/role filtering, schema hash, loop/dead-tool guards
 │   ├── tool-output-retention.js     # Lossless stdout retention + line/keyword retrieval
+│   ├── memory-store.js              # Built-in memory extraction, JSONL persistence & scoped recall
+│   ├── builtin-tools.js             # Auto-wired uao_retrieve_tool_output & uao_recall_memory loop
 │   ├── static-context-dedup.js      # Generic fingerprint-based system/reference dedup
 │   └── context-selector.js          # Multi-tenant Fail-Closed Scope ACL selection
 ├── adapters/

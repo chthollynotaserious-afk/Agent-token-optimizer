@@ -2,6 +2,7 @@
  * Custom Agent, MCP, and LangGraph Adapters
  */
 import { BaseAgentAdapter } from './base.js';
+import { getBuiltinToolSpecs, formatBuiltinTools, executeBuiltinToolCall } from '../core/builtin-tools.js';
 
 export class CustomAgentAdapter extends BaseAgentAdapter {
   constructor({ optimizer, agentId = 'custom-agent' } = {}) {
@@ -40,6 +41,25 @@ export class MCPToolAdapter extends BaseAgentAdapter {
       retainedRefId: managed.originalRefId || null,
       compressedBy: managed.compressedBy || null,
     };
+  }
+
+  /**
+   * Expose MCP-compatible tool descriptors + bound execution handlers for automatic registration.
+   */
+  getBuiltinTools({ includeRetrieve = true, includeRecall = true, defaultCtx = {} } = {}) {
+    const specs = formatBuiltinTools(getBuiltinToolSpecs({ includeRetrieve, includeRecall }), 'mcp');
+    return specs.map((spec) => ({
+      ...spec,
+      execute: async (args, callCtx = {}) => executeBuiltinToolCall(
+        this.optimizer,
+        { name: spec.name, args },
+        { ...defaultCtx, ...callCtx }
+      ),
+    }));
+  }
+
+  async handleBuiltinToolCall(name, args = {}, ctx = {}) {
+    return executeBuiltinToolCall(this.optimizer, { name, args }, ctx);
   }
 }
 
