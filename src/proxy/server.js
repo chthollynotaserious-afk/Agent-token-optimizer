@@ -9,6 +9,7 @@
  */
 
 import http from 'node:http';
+import { UniversalAgentOptimizer } from '../core/optimizer.js';
 import { OpenAICompatibleAdapter } from '../adapters/openai-compatible.js';
 import { AnthropicAdapter } from '../adapters/anthropic.js';
 
@@ -37,17 +38,17 @@ function sendJson(res, status, data) {
 }
 
 export function createProxyServer({
-  optimizer,
+  optimizer = null,
   upstreamBaseUrl,
   provider = 'openai',
   fetchImpl = globalThis.fetch,
 } = {}) {
-  if (!optimizer) throw new Error('createProxyServer: optimizer is required');
   if (!upstreamBaseUrl) throw new Error('createProxyServer: upstreamBaseUrl is required');
+  const activeOptimizer = optimizer || new UniversalAgentOptimizer();
 
   const upstream = upstreamBaseUrl.replace(/\/$/, '');
-  const openaiAdapter = new OpenAICompatibleAdapter({ optimizer, provider });
-  const anthropicAdapter = new AnthropicAdapter({ optimizer });
+  const openaiAdapter = new OpenAICompatibleAdapter({ optimizer: activeOptimizer, provider });
+  const anthropicAdapter = new AnthropicAdapter({ optimizer: activeOptimizer });
 
   const server = http.createServer(async (req, res) => {
     const urlPath = (req.url || '/').split('?')[0];
@@ -57,7 +58,7 @@ export function createProxyServer({
     }
 
     if (req.method === 'GET' && urlPath === '/metrics') {
-      return sendJson(res, 200, { ok: true, metrics: optimizer.getMetrics() });
+      return sendJson(res, 200, { ok: true, metrics: activeOptimizer.getMetrics() });
     }
 
     if (req.method === 'POST' && (urlPath === '/v1/chat/completions' || urlPath === '/v1/messages')) {

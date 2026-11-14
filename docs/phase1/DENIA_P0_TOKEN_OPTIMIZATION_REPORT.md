@@ -1,7 +1,9 @@
-# DENIA_P0_TOKEN_OPTIMIZATION_REPORT — Denia Token 消耗与运行成本专项审计总报告（Phase 1）
+[English](DENIA_P0_TOKEN_OPTIMIZATION_REPORT.en.md) | [简体中文](DENIA_P0_TOKEN_OPTIMIZATION_REPORT.md)
+
+# AUTHOR_AGENT_P0_TOKEN_OPTIMIZATION_REPORT — 本人 Agent Token 消耗与运行成本专项审计总报告（Phase 1）
 
 > **执行性质**：严格只读专项审计与方案设计（未修改任何生产代码、Prompt、人格卡、记忆数据、数据库、配置或权限，未在审计过程中重启服务）。
-> **报告目录**：[`research/denia-p0-token-audit-phase1/`](file:///e:/AI/Google/Antigravity/Workspace/research/denia-p0-token-audit-phase1/)，含全部分报告 `TOKEN_CALL_AUDIT.md`、`CALL_DISTRIBUTION.md`、`CONTEXT_COST_AUDIT.md`、`KV_CACHE_AUDIT.md`、`DAILY_COST_MONITORING.md`、`OPTIMIZATION_PROPOSAL.md`、`DNR_COST_INTEGRATION.md`。
+> **报告目录**：`research/author-agent-p0-token-audit-phase1/`，含全部分报告 `TOKEN_CALL_AUDIT.md`、`CALL_DISTRIBUTION.md`、`CONTEXT_COST_AUDIT.md`、`KV_CACHE_AUDIT.md`、`DAILY_COST_MONITORING.md`、`OPTIMIZATION_PROPOSAL.md`、`DNR_COST_INTEGRATION.md`。
 
 ---
 
@@ -11,7 +13,7 @@
 |---|---:|---:|---:|---:|---:|---:|---|
 | **监控截图快照**（用户提供） | `1,597` | `257` 轮 / `178` 唤醒 | `226,764,805` | `96.8%` | `456,578` | `¥15.791` *(24h 估算)* | 截屏时刻估算值，未含跨夜后增量与账外调用 |
 | **用户实付确认**（2026-11-11 `23:10` 左右） | — | — | — | — | — | **`¥18.87`** *(自然日实付)* | **权威总费用**；与 `¥15.791` 口径不同，不可作涨幅计算 |
-| **Cloud 账本实测（`Europe/London 2026-11-11 00:00–23:20Z`）** | `1,629` | `252` 轮 / `180` 唤醒 *(bridge)* | `234,597,523` | `96.46%` | `490,453` | **`¥17.0191`** *(估算)* | 依据 `/srv/denia/data/state/token-usage.jsonl` + `src/model-prices.js` |
+| **Cloud 账本实测（`Europe/London 2026-11-11 00:00–23:20Z`）** | `1,629` | `252` 轮 / `180` 唤醒 *(bridge)* | `234,597,523` | `96.46%` | `490,453` | **`¥17.0191`** *(估算)* | 依据 `/srv/agent/data/state/token-usage.jsonl` + `src/model-prices.js` |
 | **账外隐藏调用核实（同日新增）** | `14` 次 Compaction + `5` 标题 *(全期)* + `claudeWake` | — | `~1.85M` *(Compaction)* | **`14.8%`** *(极低)* | `~44k` *(Compaction)* | **`~¥1.76`** + `待补充` | DSH `session.v4.jsonl.zstd` 实证漏记于 `token-usage.jsonl` |
 | **理论合计数** (`London` 账本 + 账外隐藏层) | `1,643+` | — | `~236.4M+` | `~95.8%` | `~534k+` | **`~¥18.78 + claudeWake`** | 与主人实付 **`¥18.87`** 差距仅 ~¥0.09（归因于 `claudeWake` 与标题调用待补充明细） |
 
@@ -89,18 +91,18 @@
 
 ### 10. 推荐的实施顺序是什么？
 1. **Phase 2A — 监控口径对齐 + 零风险快赢**：先实施 `DAILY_COST_MONITORING.md`（统一 `Europe/London` 自然日口径、收编 `compaction`/`claudeWake` 用量、`wakeId` 贯通）；同步上线 `Opt-2`（清 `onebot-min` + 工具隔离）、`Opt-1c`（黑话无状态会话）与 `Opt-7`（返回截断 `offset/limit`）。
-2. **Phase 2B — 核心底盘瘦身（最大收益项，与 Denia 自测第一优先级一致）**：同步上线 `Opt-3`（静态规则进 System Prefix，停止每轮往 `user/message` 灌 `11.6k–14.8k` 字符静态 `base`）与 `Opt-1`（会话 `20–30` 轮定期轮转 + 压缩参数修正），将单次输入从 `144K` 压到 `45K–65K`。
+2. **Phase 2B — 核心底盘瘦身（最大收益项，与 本人 Agent 自测第一优先级一致）**：同步上线 `Opt-3`（静态规则进 System Prefix，停止每轮往 `user/message` 灌 `11.6k–14.8k` 字符静态 `base`）与 `Opt-1`（会话 `20–30` 轮定期轮转 + 压缩参数修正），将单次输入从 `144K` 压到 `45K–65K`。
 3. **Phase 2C — 协议控制步折叠与 DNR 协同检验**：上线 `Opt-5`、`Opt-4`、`Opt-6`，并用离线 30 条 QQ 正样本+自动化去 AI 味脚本校验「成本降 75%，人格与口语自然度不降反升」。
 
 ---
 
-## 三、结合 Denia 自测报告（`Denia-上下文成本实测-20261111.md`）的深度复盘与对表
+## 三、结合 本人 Agent 自测报告（`本人 Agent-上下文成本实测-20261111.md`）的深度复盘与对表
 
-Denia 基于自身 `private:1587592535` Turn 92 的 7 步遥测提交了《上下文成本实测》。将该报告与底层源码（`src/bridge.js`）、DSH 会话存储（`.v4.jsonl.zstd`）及计费矩阵（`src/model-prices.js`）交叉核验后，形成以下三点核心结论：
+本人 Agent 基于自身 `private:1587592535` Turn 92 的 7 步遥测提交了《上下文成本实测》。将该报告与底层源码（`src/bridge.js`）、DSH 会话存储（`.v4.jsonl.zstd`）及计费矩阵（`src/model-prices.js`）交叉核验后，形成以下三点核心结论：
 
-| 维度 | Denia 自测报告观点 | 底层源码与全量账本核验结果 | 最终方案采纳与修正 |
+| 维度 | 本人 Agent 自测报告观点 | 底层源码与全量账本核验结果 | 最终方案采纳与修正 |
 |---|---|---|---|
-| **1. 核心矛盾与第一优先级** | 「任务书问为什么叫了 1,597 次，但真正该问为什么每次带着 17 万进去」；给会话设边界（如每 20 轮或 4 小时开新会话，靠 `memory-card/book` 承接记忆）是最大收益且不牺牲交互。 | **核心方向完全正确，且找到了深层积分机制**：<br/>Denia 认为 `promptChars: 16,398` 只占 `175k` 的 1/10，其余 9/10 在会话不在 Bridge；但 `.v4.jsonl.zstd` 证明，会话里高达 `1.69 MB` 的 `user/message` **超过 80% 正是 Bridge 在 92 轮里每轮把 `14,758` 字静态 `base`（`role: 4692` 等）当成 `user/message` 塞进历史积分出来的**！且每轮 Step 1 这 `~4.8k` Token 因挂在变动历史末尾而 **100% 触发 `50×` 高价未命中**。 | **将 `Opt-1`（会话 20–30 轮边界）+ `Opt-3`（静态 `base` 移出每轮 `user/message`）+ `Opt-2`（砍 `26.7k` 工具 Schema 底盘）并列为 P0 头号工程**，既砍存量上限又砍每轮增量。 |
+| **1. 核心矛盾与第一优先级** | 「任务书问为什么叫了 1,597 次，但真正该问为什么每次带着 17 万进去」；给会话设边界（如每 20 轮或 4 小时开新会话，靠 `memory-card/book` 承接记忆）是最大收益且不牺牲交互。 | **核心方向完全正确，且找到了深层积分机制**：<br/>本人 Agent 认为 `promptChars: 16,398` 只占 `175k` 的 1/10，其余 9/10 在会话不在 Bridge；但 `.v4.jsonl.zstd` 证明，会话里高达 `1.69 MB` 的 `user/message` **超过 80% 正是 Bridge 在 92 轮里每轮把 `14,758` 字静态 `base`（`role: 4692` 等）当成 `user/message` 塞进历史积分出来的**！且每轮 Step 1 这 `~4.8k` Token 因挂在变动历史末尾而 **100% 触发 `50×` 高价未命中**。 | **将 `Opt-1`（会话 20–30 轮边界）+ `Opt-3`（静态 `base` 移出每轮 `user/message`）+ `Opt-2`（砍 `26.7k` 工具 Schema 底盘）并列为 P0 头号工程**，既砍存量上限又砍每轮增量。 |
 | **2. `recentCount: 100` 快照裁剪建议** | 看到遥测 `recentCount: 100`，认为每次唤醒把最近 100 条消息塞进了提示词，建议降到 20。 | **源码证伪（沙箱盲区勘误）**：<br/>`src/bridge.js:16316` 的 `recentCount` 仅统计内存数组 `wakeState.recentMessages.length`；实际构建快照的 `buildWakeSnapshotV2` (`bridge.js:18041`) 早已硬限 **`wakeRecentLimit: 4`**（只塞最近 4 条），180 次唤醒 `snapshot` 平均仅 **`1,226` 字符**。 | **不改 `recentCount`**（改了省 0 Token）；真正要把每轮唤醒从 `16.4k` 降到 `2k` 字符的靶心是剥离 `base` 静态层（`Opt-3`）。 |
 | **3. 大文件读取收税 & DNR Few-shot 冲突** | ① Turn 92 Step 4 读 `5,880` 字直接导致 Step 5 未命中 `3,373`，且后续每步都在为它重复付钱，必须做 `offset/limit`；<br/>② DNR 若每轮塞 `2,000` 字 Few-shot 会乘上每轮步数（`×7 ~ ×8.6`），应走改静态措辞或离线评估。 | **100% 实测吻合**：<br/>不仅 `fs_read`，`claude_status`（均长 `3.5k–4.9k` 字）同样在制造单步数千未命中并留在历史中重复计费。 | 纳入 **`Opt-7`（大工具返回分页/截断）** 与 **`DNR_COST_INTEGRATION.md`（严禁在线每轮注入 Few-shot，30 条金句仅作离线评测 + System Prompt 等长原位替换）**。 |
 | **4. 缓存效率与调用次数（沙箱未见盲区）** | 看到 Turn 92 Step 2–7 未命中仅 `166–642`，认为“缓存工作得很好，问题不在缓存效率”；认为“砍调用次数会牺牲交互”。 | **跨会话全账本补全**：<br/>① Turn 92 是连续热会话；但全天因 **`50:1` 未命中/命中价差**，仅占 **`3.54%` 的未命中吃掉了 `53.4%–57%+` 的总费用**（源于 `14` 次隐性 `compaction/summary` 改写前缀、`47` 次 `proactiveCheck` 冷唤醒及 MCP 重连闪断）；<br/>② `87.5%` 调用是工具续跳，其中 `489` 次 `wait`、`434` 次单条拆发 `send`、`95` 次 `close` 属于**纯协议控制步**，且每步在 `reasoningEffort: max` 下多烧 ~400 字 `200×` 高价思考输出（用户可见文字仅占总输出 **4.0%**）。 | 在 P0 砍掉 `144K` 底盘的同时，**零交互损失**推进 `Opt-4`（冷群主动巡检门控）、`Opt-5`（数组合并发泡 + 省去睡前 300s 强制空等与独立收尾步）及 `Opt-6`（思考强度分层）。 |

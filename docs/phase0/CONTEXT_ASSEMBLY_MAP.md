@@ -1,9 +1,11 @@
-# Denia 上下文组装全链路图与真实请求映射 (`CONTEXT_ASSEMBLY_MAP.md`)
+[English](CONTEXT_ASSEMBLY_MAP.en.md) | [简体中文](CONTEXT_ASSEMBLY_MAP.md)
+
+# 本人 Agent 上下文组装全链路图与真实请求映射 (`CONTEXT_ASSEMBLY_MAP.md`)
 
 ## 1. 部署基线与文件指纹（只读审计快照）
 
 - **审计时间**：`2026-11-12T00:03:00Z`（`Europe/London` 同为 `00:03:00`）
-- **生产主机与路径**：`ubuntu@130.162.165.68:/home/ubuntu/surfcore`
+- **生产主机与路径**：`<author-agent-prod-host>:/home/ubuntu/surfcore`
 - **版本说明**：`/home/ubuntu/surfcore` 为非 `.git` 部署目录（`package.json` 版本号 `0.8.8`），以目标文件 SHA-256 哈希作为精确版本锚点：
 
 | 文件路径 | SHA-256 | 行数 / 说明 |
@@ -35,7 +37,7 @@ flowchart TD
 - **会话创建入口**：`ensureSession(key, mode)`（`src/bridge.js:12217-12253`）：
   ```js
   const created = await api.sessions.create({
-    cwd: AGENT_WORKDIR, // /srv/denia/data/state/agents
+    cwd: AGENT_WORKDIR, // /srv/agent/data/state/agents
     agentPreset: presetForMode(effectiveMode), // reserved2 -> 'qq-chat-v2'
   });
   ```
@@ -98,7 +100,7 @@ flowchart TD
 
 ## 3. 真实请求级组装明细与段落偏移表（私聊 1 条 + 群聊 1 条）
 
-以下两条 Trace 直接提取自线上 `/srv/denia/data/state/context-telemetry-bridge.jsonl` 与对应的 DSH 会话文件 `/home/ubuntu/.dsh/sessions/--srv-denia-data-state-agents--/<sessionId>/session.v4.jsonl.zstd`。
+以下两条 Trace 直接提取自线上 `/srv/agent/data/state/context-telemetry-bridge.jsonl` 与对应的 DSH 会话文件 `/home/ubuntu/.dsh/sessions/--srv-agent-data-state-agents--/<sessionId>/session.v4.jsonl.zstd`。
 
 ### 3.1 私聊真实 Trace：`private:1587592535`（`wakeId: w_1794440287561_3`，Turn 95）
 

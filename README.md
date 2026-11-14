@@ -1,10 +1,11 @@
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 # Universal Agent Optimizer
 
 **An open-source optimization middleware for long-running AI agents.**
 
-> **Status:** `v2.0.0-alpha.1` on branch `feature/universal-agent-optimizer` (evolved from `denia-token-optimizer`).
->
-> Zero-dependency Node.js (`>=20.0.0`) ESM runtime. Fully backward-compatible with all v1 legacy `src/*.js` modules.
+> **Status:** `v2.0.0-alpha.2` (`Universal Agent Optimizer`, evolved from `agent-token-optimizer (v1)`).
+> Zero-dependency Node.js (`>=20.0.0`) ESM runtime + TypeScript declarations (`types/index.d.ts`) + CLI (`uao`) + zero-dependency Python HTTP proxy client (`python/uao_client.py`). Fully backward-compatible with all v1 legacy `src/*.js` modules.
 
 Universal Agent Optimizer lowers real API spend, invalid model wakeups, tool bloat, and long-session context inflation for stateful, long-running agents — **without sacrificing task success, breaking KV-cache prefix hits, bypassing tool ACLs, or losing critical memory during session rotation.**
 
@@ -12,7 +13,7 @@ Universal Agent Optimizer lowers real API spend, invalid model wakeups, tool blo
 
 ## Why Universal Agent Optimizer?
 
-Most existing tools solve **stateless, per-turn prompt compression** or **LLM routing**. Long-running agents fail economically and reliably for different reasons:
+Most existing tools focus on **stateless, per-turn prompt compression** or **LLM routing**. Long-running agents fail economically and reliably for different reasons:
 
 | Layer | Existing Ecosystem | Universal Agent Optimizer Differentiator |
 |---|---|---|
@@ -20,8 +21,8 @@ Most existing tools solve **stateless, per-turn prompt compression** or **LLM ro
 | **Session Lifecycle** | Hard resets or lossy rolling summaries | **7-Step Transactional Rotation (`src/core/session-lifecycle.js`)**: `await` flush -> verify persistence -> build structured handoff -> reset -> verify recovery -> atomic rollback on failure. |
 | **Autonomous Wakeups** | Polls / heartbeats billed at full rate | **Invocation Controller (`src/core/invocation-controller.js`)**: event dedup, cooldown & exponential backoff, budget gates, plus a guaranteed **Priority Bypass** (`urgent` / `user_direct`). |
 | **Tool Governance & Output** | All schemas sent every turn; raw stdout truncated blindly | **Tool Governance (`src/core/tool-governance.js`) & Retention Store (`src/core/tool-output-retention.js`)**: scene/role schema pruning, loop/dead-tool guards, lossless line-range/keyword retrieval. |
-| **Multi-Tenant Isolation** | Flat context pools | **Fail-Closed Scope ACL (`src/core/context-selector.js`)**: strict scope isolation across users, channels, workspaces, and sub-agents. |
-| **External Optimizers** | Isolated tools that fight over the same prefix | **Single-Compressor Coordinator + Circuit Breaker (`src/plugins/compression.js`, `src/plugins/external-optimizer.js`)**: safe adapter integration for Headroom, `context-compress`, and RTK with quality gates and fallback. |
+| **Multi-Tenant Isolation** | Flat context pools | **Fail-Closed Scope ACL (`src/core/context-selector.js`)**: strict scope isolation across tenants, channels, workspaces, and sub-agents. |
+| **External Optimizers** | Isolated tools competing over the same prefix | **Single-Compressor Coordinator + Circuit Breaker (`src/plugins/compression.js`, `src/plugins/external-optimizer.js`)**: safe adapter integration for Headroom, `context-compress`, and RTK with quality gates and fallback. |
 
 For detailed design rationale and competitive analysis, see [`docs/`](./docs/):
 - [Competitor Audit](./docs/COMPETITOR_AUDIT.md)
@@ -36,36 +37,46 @@ For detailed design rationale and competitive analysis, see [`docs/`](./docs/):
 ## Feature Maturity & Honest Boundaries
 
 > [!IMPORTANT]
-> **Verified vs. Mocked vs. Future:** We explicitly distinguish what has been executed locally from mocked integrations and planned work.
+> **Verified vs. Mocked vs. Future:** We explicitly distinguish what has been executed locally from mocked integrations and planned empirical work.
 
-- **Verified in Local Node.js Tests (Unit + Integration + Legacy Regression):**
+- **Verified in Local Tests (Node.js + Python CLI/Proxy + Package Check):**
   - Core engine: `UniversalAgentOptimizer`, `cache-economics`, `model-prices`, `session-lifecycle`, `invocation-controller`, `tool-governance`, `static-context-dedup`, `tool-output-retention`, `context-selector`
   - Built-in adapters: `BaseAgentAdapter`, `OpenAICompatibleAdapter`, `AnthropicAdapter`, `CustomAgentAdapter`, `MCPToolAdapter`, `LangGraphAdapter`
   - State providers & single-compressor gate: `NoopStateProvider`, `CompanionStateProvider`, `SingleCompressorCoordinator`
   - Observability: `UniversalTokenLedger`, `CostTracker`, `CacheTracker`, `AuditLog`
-  - Local HTTP transparent proxy: `createProxyServer` (`/v1/chat/completions`, `/v1/messages`, `/health`, `/metrics`) against a local stub upstream
-  - V1 legacy compatibility (`src/session-rotation.js`, `src/static-context-dedup.js`, `src/token-ledger.js`, etc.)
+  - Local HTTP transparent proxy & Python client (`createProxyServer`, `python/uao_client.py`) verified end-to-end against local HTTP stub upstreams
+  - CLI (`bin/uao.js`), TypeScript declaration export coverage (`types/index.d.ts`), `npm pack` tarball verification, and v1 legacy compatibility (`src/session-rotation.js`, `src/static-context-dedup.js`, `src/token-ledger.js`, etc.)
 - **Tested Against Local Mocks Only (Pending Live Integration):**
   - External optimizer adapters: `HeadroomPlugin`, `ContextCompressPlugin`, `RTKPlugin` (`src/plugins/external-optimizer.js`) — HTTP/CLI contracts, circuit-breaker failover, and fallback paths are verified against local mocks; live external daemon runs have not yet been executed in CI.
-  - Cloud LLM API spend benchmarks — all current benchmarks run in `simulated` mode (`0` live API spend). Real API verification requires explicit user authorization and credentials.
-- **Not Included / Out of Scope:**
-  - Model routing, billing gateways, and multi-provider auth pools (delegated to gateway layers such as LiteLLM).
-  - Real-time RL/model-based token scoring (`LLMLingua`-style local GPU inference).
+  - Paid cloud LLM API spend benchmarks — all current benchmarks run in `simulated` mode (`0` live API spend). Real `empirical` runs require user-provided API credentials.
+- **Out of Scope by Design:**
+  - Multi-provider billing/routing gateways (delegated to gateway layers such as LiteLLM).
+  - Real-time GPU token-scoring inference (`LLMLingua`-style local model compression).
 
 ---
 
 ## Quick Start
 
-### 1. Embedded Middleware Mode
+### 1. CLI Mode (`npx uao`)
+
+```bash
+# Start local transparent HTTP proxy (OpenAI / DeepSeek / Anthropic compatible)
+npx uao proxy --upstream https://api.openai.com --port 8787 --provider openai
+
+# Run the 10-scenario zero-cost simulated benchmark
+npx uao benchmark
+
+# Inspect a JSONL token ledger file
+npx uao inspect-ledger ./data/ledger.jsonl
+```
+
+### 2. Embedded Middleware Mode (JS / TypeScript)
 
 ```js
-import { UniversalAgentOptimizer, OpenAICompatibleAdapter } from 'universal-agent-optimizer';
+import { UniversalAgentOptimizer } from 'universal-agent-optimizer';
 
-const optimizer = new UniversalAgentOptimizer({
-  adapter: new OpenAICompatibleAdapter(),
-});
+const optimizer = new UniversalAgentOptimizer();
 
-// Run full request lifecycle: invocation gate -> dedup -> tool pruning -> cache gate -> upstream -> telemetry
 const result = await optimizer.optimizeRequest({
   model: 'deepseek-chat',
   sessionId: 'session-1',
@@ -78,11 +89,11 @@ const result = await optimizer.optimizeRequest({
     { role: 'system', content: 'You are a concise coding assistant.' },
     { role: 'user', content: 'Inspect src/index.js for exports.' },
   ],
-  invokeUpstream: async (optimizedPayload) => {
-    // Call your OpenAI / Anthropic / local LLM client here
+  invokeUpstream: async (preparedPayload) => {
+    // Call your OpenAI / Anthropic / local LLM client using preparedPayload.messages & preparedPayload.tools
     return {
       content: 'Done.',
-      usage: { prompt_tokens: 1200, cached_tokens: 900, completion_tokens: 45 },
+      usage: { prompt_tokens: 1200, prompt_cache_hit_tokens: 900, completion_tokens: 45 },
     };
   },
 });
@@ -90,33 +101,38 @@ const result = await optimizer.optimizeRequest({
 console.log(result.telemetry);
 ```
 
-### 2. Local Transparent HTTP Proxy Mode
+### 3. Local HTTP Proxy + Python Client Mode
 
 ```js
 import { createProxyServer } from 'universal-agent-optimizer';
 
 const proxy = createProxyServer({
-  upstreamBaseUrl: 'https://api.openai.com', // or local vLLM/Ollama/Anthropic endpoint
+  upstreamBaseUrl: 'https://api.openai.com', // or DeepSeek / Anthropic / local Ollama / vLLM
 });
 
-await proxy.listen(8787);
-// Routes:
-//   POST /v1/chat/completions
-//   POST /v1/messages
-//   GET  /health
-//   GET  /metrics
+proxy.listen(8787, '127.0.0.1');
+// Routes: POST /v1/chat/completions | POST /v1/messages | GET /health | GET /metrics
 ```
+
+See [python/README.md](./python/README.md) and [python/uao_client.py](./python/uao_client.py) for zero-dependency Python 3.9+ and OpenAI/LangGraph SDK examples.
 
 ---
 
 ## Repository Structure
 
 ```text
+bin/
+└── uao.js                           # CLI (`proxy`, `benchmark`, `inspect-ledger`)
+python/
+├── uao_client.py                    # Zero-dependency Python 3.9+ HTTP proxy client
+└── README.md                        # Python / OpenAI SDK / LangGraph integration guide
+types/
+└── index.d.ts                       # Full TypeScript declarations matching `src/index.js`
 src/
 ├── index.js                         # Public exports for v2 Universal Agent Optimizer
 ├── model-prices.js                  # Compatibility shim for legacy token-ledger imports
 ├── core/
-│   ├── optimizer.js                 # Unified optimizeRequest / optimizeTurn pipeline
+│   ├── optimizer.js                 # Unified prepareRequest / afterResponse / optimizeRequest pipeline
 │   ├── cache-economics.js           # Provider cache profiles & net-savings cost gate
 │   ├── model-prices.js              # Multi-provider USD & legacy CNY pricing tables
 │   ├── session-lifecycle.js         # 7-step transactional rotation + rollback
@@ -144,13 +160,11 @@ src/
 ├── proxy/
 │   └── server.js                    # Zero-dependency HTTP transparent proxy
 └── *.js                             # Original v1 legacy modules (preserved for compatibility)
-
 tests/
-├── unit/                            # Core module unit tests
-├── integration/                     # Simulated OpenAI/Anthropic/MCP/LangGraph/Proxy & benchmark smoke
+├── unit/                            # Core, CLI & TypeScript declaration tests
+├── integration/                     # OpenAI/Anthropic/MCP/LangGraph/Proxy/Python & benchmark smoke tests
 ├── regression/                      # V1 backward-compatibility & legacy shim verification
 └── benchmark/run-benchmark.mjs      # 10-scenario zero-cost simulated benchmark harness
-
 scripts/                             # Original v1 verification scripts
 docs/                                # Research, audit, architecture, benchmark, roadmap docs
 ```
@@ -178,7 +192,7 @@ docs/                                # Research, audit, architecture, benchmark,
 
 ## Development & Testing
 
-Requirements: **Node.js >= 20.0.0** (no `npm install` needed; zero runtime dependencies).
+Requirements: **Node.js >= 20.0.0** (optional **Python >= 3.9** for Python proxy integration test; zero third-party runtime dependencies).
 
 ```bash
 # Run all unit, integration, and legacy compatibility tests
