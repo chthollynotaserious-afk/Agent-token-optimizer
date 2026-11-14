@@ -1,0 +1,42 @@
+name: Universal Agent Optimizer CI
+
+on:
+  push:
+    branches: [main, 'feature/**']
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-and-benchmark:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ['20.x', '22.x']
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Static syntax & diff hygiene check
+        run: |
+          git diff --check
+          node --check src/index.js
+          node --check src/core/optimizer.js
+          node --check src/proxy/server.js
+
+      - name: Run Unit Tests
+        run: npm run test:unit
+
+      - name: Run Integration Tests
+        run: npm run test:integration
+
+      - name: Run Legacy Compatibility & Regression Tests
+        run: npm run test:regression
+
+      - name: Run Simulated Benchmark Smoke Suite
+        run: npm run benchmark

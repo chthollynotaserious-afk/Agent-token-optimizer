@@ -1,9 +1,55 @@
 {
-  "name": "denia-token-optimizer",
-  "version": "1.0.0",
-  "description": "Denia high KV-cache hit rate (95%+) and low-token-consumption context optimization core (Opt-1 through Opt-5).",
+  "name": "universal-agent-optimizer",
+  "version": "2.0.0-alpha.1",
+  "description": "An open-source optimization middleware for long-running AI agents: KV-cache economics, transactional session lifecycle, tool governance & output retention, invocation control, and provider-neutral observability.",
   "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./core/optimizer": "./src/core/optimizer.js",
+    "./core/cache-economics": "./src/core/cache-economics.js",
+    "./core/model-prices": "./src/core/model-prices.js",
+    "./core/session-lifecycle": "./src/core/session-lifecycle.js",
+    "./core/invocation-controller": "./src/core/invocation-controller.js",
+    "./core/tool-governance": "./src/core/tool-governance.js",
+    "./core/static-context-dedup": "./src/core/static-context-dedup.js",
+    "./core/tool-output-retention": "./src/core/tool-output-retention.js",
+    "./core/context-selector": "./src/core/context-selector.js",
+    "./adapters/base": "./src/adapters/base.js",
+    "./adapters/openai-compatible": "./src/adapters/openai-compatible.js",
+    "./adapters/anthropic": "./src/adapters/anthropic.js",
+    "./adapters/custom-agent": "./src/adapters/custom-agent.js",
+    "./adapters/mcp": "./src/adapters/mcp.js",
+    "./adapters/langgraph": "./src/adapters/langgraph.js",
+    "./plugins/state-provider": "./src/plugins/state-provider.js",
+    "./plugins/compression": "./src/plugins/compression.js",
+    "./plugins/external-optimizer": "./src/plugins/external-optimizer.js",
+    "./observability/token-ledger": "./src/observability/token-ledger.js",
+    "./observability/cost-tracker": "./src/observability/cost-tracker.js",
+    "./observability/cache-tracker": "./src/observability/cache-tracker.js",
+    "./observability/audit-log": "./src/observability/audit-log.js",
+    "./proxy/server": "./src/proxy/server.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
-    "test": "node --test scripts/test-context-selector.mjs scripts/test_cost_calc.mjs scripts/test-emotion-memory-v2.mjs scripts/test-session-rotation.mjs"
-  }
+    "test": "node --test scripts/test-context-selector.mjs scripts/test-emotion-memory-v2.mjs scripts/test-session-rotation.mjs tests/unit/*.test.mjs tests/integration/*.test.mjs tests/regression/*.test.mjs",
+    "test:unit": "node --test tests/unit/*.test.mjs",
+    "test:integration": "node --test tests/integration/*.test.mjs",
+    "test:regression": "node --test scripts/test-context-selector.mjs scripts/test-emotion-memory-v2.mjs scripts/test-session-rotation.mjs tests/regression/*.test.mjs",
+    "benchmark": "node tests/benchmark/run-benchmark.mjs"
+  },
+  "keywords": [
+    "ai-agent",
+    "llm",
+    "token-optimization",
+    "kv-cache",
+    "prompt-caching",
+    "middleware",
+    "mcp",
+    "langgraph",
+    "observability"
+  ],
+  "license": "MIT"
 }
