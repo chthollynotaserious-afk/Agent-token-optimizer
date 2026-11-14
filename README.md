@@ -108,7 +108,37 @@
   2. **按场景裁剪 `Tool Schema`**：不要给闲聊、子任务或无权限会话注入全局 100+ 工具表；在进入模型前按会话角色过滤 `tools[]` 列表（即 Opt-2 的核心思路）。
   3. **监控 `Cache Miss` 占比而非只看命中率**：重点排查 `System Prompt` 与历史前缀是否被时间戳、动态随机数或压缩摘要频繁打断。
 
-### 3. 模型升级后的适配性变化评估（会变 vs 不会变）
+### 3. 最小集成示例（Opt-1 + Auto-Flush + Opt-3）
+
+```js
+import { rotateSession, consumePendingHandoff } from './src/session-rotation.js';
+import { evaluateStaticDedup, commitStaticDedupState } from './src/static-context-dedup.js';
+
+// 1) 每轮开始前检查是否需要无损轮转（含方案二 Auto-Flush 钩子）
+rotateSession(convKey, convState, globalState, {
+  currentInputTokens: lastUsageTokens,
+  onBeforeRotate: ({ recentMessages }) => flushToMemoryStore(convKey, recentMessages),
+});
+
+// 2) 新会话首轮取出滑窗交接与按需调阅提示（方案一 + 方案四）
+const handoffPrefix = consumePendingHandoff(convState);
+
+// 3) 评估静态规则块是否可在本会话内省略（Opt-3）
+const dedup = evaluateStaticDedup({
+  key: convKey,
+  sessionId: globalState.sessions[convKey],
+  staticBlock: staticRulesText,
+  prevStatic: convState.staticContextState,
+});
+
+const prompt = handoffPrefix + (dedup.canOmitStatic ? '' : staticRulesText) + dynamicUserTurn;
+await callLLM(prompt);
+
+// 4) 调用成功后提交去重状态
+convState.staticContextState = commitStaticDedupState(convState.staticContextState, dedup.pendingCommit);
+```
+
+### 4. 模型升级后的适配性变化评估（会变 vs 不会变）
 
 当底层大模型升级到下一代（或切换推理模型 / 跨厂商模型）时，本模块的**底层工程逻辑不会失效，但收益权重与参数阈值会随之改变**：
 
@@ -154,6 +184,8 @@ npm test
 ```bash
 node --test scripts/test-context-selector.mjs scripts/test_cost_calc.mjs scripts/test-emotion-memory-v2.mjs scripts/test-session-rotation.mjs
 ```
+
+> **说明**：`npm test` 覆盖上述 4 套**零外部依赖的独立核心测试**；`scripts/` 下其余 `test-opt3-expand.mjs`、`test-cost-summary.mjs`、`test-a2-silent-overbudget.mjs`、`test-opt45-integration.mjs` 为原生产环境桥接层（`scripts/patches/`）配套验证参考脚本，依赖完整宿主环境模块。
 
 ---
 
