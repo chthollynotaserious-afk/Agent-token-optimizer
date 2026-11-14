@@ -6,6 +6,7 @@ import test from 'node:test';
 import {
   normalizeUsage,
   priceUsage,
+  ratesAt,
   LEGACY_CNY_PRICE_TABLE,
   inputTokensOf,
 } from '../../src/core/model-prices.js';
@@ -134,4 +135,63 @@ test('CostTracker, CacheTracker, and AuditLog work cohesively', () => {
   const audit = new AuditLog();
   audit.log('gate', 'skip', { reason: 'cooldown' });
   assert.equal(audit.query({ category: 'gate' }).length, 1);
+});
+
+test('ratesAt and priceUsage resolve OpenRouter vendor/model slugs, longest-match snapshots, :free tiers, and upstream usage.cost', () => {
+  const mini = ratesAt('openai/gpt-4o-mini');
+  assert.equal(mini.estimated, false);
+  assert.equal(mini.cacheMiss, 0.15);
+  assert.equal(mini.cacheHit, 0.075);
+  assert.equal(mini.output, 0.6);
+
+  const datedMini = ratesAt('openai/gpt-4o-mini-2024-07-18');
+  assert.equal(datedMini.estimated, true);
+  assert.equal(datedMini.cacheMiss, 0.15);
+  assert.equal(datedMini.output, 0.6);
+
+  const dotHaiku = ratesAt('anthropic/claude-3.5-haiku');
+  assert.equal(dotHaiku.estimated, false);
+  assert.equal(dotHaiku.cacheMiss, 0.8);
+  assert.equal(dotHaiku.cacheWrite, 1.0);
+
+  const gpt41 = ratesAt('openai/gpt-4.1');
+  assert.equal(gpt41.estimated, false);
+  assert.equal(gpt41.cacheMiss, 2.0);
+
+  const nitro = ratesAt('openai/gpt-4o-mini:nitro');
+  assert.equal(nitro.estimated, true);
+  assert.equal(nitro.cacheMiss, 0.15);
+
+  const freeTier = ratesAt('deepseek/deepseek-chat:free');
+  assert.equal(freeTier.estimated, false);
+  assert.equal(freeTier.cacheMiss, 0);
+  assert.equal(freeTier.output, 0);
+
+  const upstreamPaid = priceUsage(
+    { prompt_tokens: 1000, completion_tokens: 200, prompt_tokens_details: { cached_tokens: 500 }, cost: 0.00123 },
+    { model: 'openai/gpt-4o-mini' }
+  );
+  assert.equal(upstreamPaid.cost.costSource, 'upstream');
+  assert.equal(upstreamPaid.cost.total, 0.00123);
+
+  const upstreamZero = priceUsage(
+    { prompt_tokens: 1000, completion_tokens: 200, cost: 0 },
+    { model: 'unknown-vendor/custom-model' }
+  );
+  assert.equal(upstreamZero.cost.costSource, 'upstream');
+  assert.equal(upstreamZero.cost.cacheMiss, 0);
+  assert.equal(upstreamZero.cost.output, 0);
+  assert.equal(upstreamZero.cost.total, 0);
+
+  const ledger = new UniversalTokenLedger();
+  const entry = ledger.record({
+    provider: 'openrouter',
+    model: 'unknown-vendor/custom-model',
+    usage: { prompt_tokens: 500, completion_tokens: 100, cost: 0.00042 },
+    observed: true,
+  });
+  assert.equal(entry.cost.costSource, 'upstream');
+  assert.equal(entry.totalCost, 0.00042);
+  assert.equal(entry.estimatedPrice, false);
+  assert.equal(entry.dataSource, 'observed');
 });
