@@ -47,7 +47,11 @@
     "docs",
     "README.md",
     "README.zh-CN.md",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "CHANGELOG.zh-CN.md",
+    "SECURITY.md",
+    "SECURITY.zh-CN.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=20.0.0"

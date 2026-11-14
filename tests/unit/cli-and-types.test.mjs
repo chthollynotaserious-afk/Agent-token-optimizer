@@ -153,13 +153,25 @@ test('All markdown docs have paired EN/ZH translations and top language switcher
   }
   walk(repoRoot);
 
-  assert.ok(mdFiles.length >= 26);
+  assert.ok(mdFiles.length >= 28);
   for (const file of mdFiles) {
     const content = fs.readFileSync(file, 'utf8');
+    const rel = path.relative(repoRoot, file);
     assert.ok(
       content.startsWith('[English]('),
-      `Missing language switcher at top of ${path.relative(repoRoot, file)}`
+      `Missing language switcher at top of ${rel}`
     );
+    assert.ok(
+      !content.includes('file:///'),
+      `Workstation file:/// link found in ${rel}`
+    );
+    // Verify relative links resolve
+    for (const match of content.matchAll(/\[[^\]]+\]\(([^)]+)\)/g)) {
+      const target = match[1].split('#')[0];
+      if (!target || /^https?:\/\//i.test(target) || /^mailto:/i.test(target)) continue;
+      const resolved = path.resolve(path.dirname(file), target);
+      assert.ok(fs.existsSync(resolved), `Broken relative link in ${rel}: ${target}`);
+    }
     if (file.endsWith('.zh-CN.md')) {
       const sibling = file.replace(/\.zh-CN\.md$/, '.md');
       assert.ok(fs.existsSync(sibling), `Missing English sibling for ${file}`);

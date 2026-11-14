@@ -85,7 +85,7 @@
    - 更致命的是：因为 `base` 被拼在每轮新增 `user/message`（即变动历史的**最末端**），在每轮唤醒的第 1 步（`initial`），这 `~4,800` Token 静态规则由于前方历史前缀已变，**100% 触发高价 `Cache Miss`（Turn 92 Step 1 的 `9,375` 未命中即有约一半源于此）**；随后在同轮 Step 2..7 及后续所有轮次中作为历史底盘反复重算！
    - **推论**：如果只做“每 20 轮开新会话 (`Opt-1`)”而不剥离每轮 `user/message` 中的静态 `base` (`Opt-3`)，仅跑 20 轮仍会在历史中堆出 `20 × 14.8k ≈ 296 KB`（约 `90k+` Token）的重复规则！**`Opt-1`（控积分上限）与 `Opt-3`（砍每轮增量 80%）必须联合实施。**
 2. **`recentCount: 100` 并非“每次注入 100 条近期消息”**（重要源码勘误）：
-   - 本人 Agent 建议“把快照 `recentCount` 从 `100` 降到 `20`”，但检查 [`src/bridge.js:16316`](file:///home/ubuntu/surfcore/src/bridge.js) 证实，遥测字段 `recentCount` 记录的是内存环形队列 `wakeState.recentMessages.length` 的缓冲容量；
+   - 本人 Agent 建议“把快照 `recentCount` 从 `100` 降到 `20`”，但检查 `src/bridge.js:16316` 证实，遥测字段 `recentCount` 记录的是内存环形队列 `wakeState.recentMessages.length` 的缓冲容量；
    - 真正组装唤醒快照的函数 `buildWakeSnapshotV2`（`src/bridge.js:18040-18044`）默认限制 `wakeMessageLimit: 12`、**`wakeRecentLimit: 4`**（只取最后 4 条）、`wakeSelfRecentLimit: 1`、`wakeMaxChars: 6000`。全天 180 次唤醒实测 `snapshot` 平均仅有 **`1,226` 字符**！
    - 因此 **削减 `recentMessages` 队列长度几乎不会降低输入 Token**；`13,482–16,514` 字符里真正不断重复并写入会话历史的噪音，是本文第三节拆解的 **`base` 静态规则与人格层（`11,619` 平均字符）**。
 3. **`16.4k` 与 `175k` 之间还包含 `~31.5k` 固定底盘与 `50×` 价格杠杆下的首跳未命中黑洞**：

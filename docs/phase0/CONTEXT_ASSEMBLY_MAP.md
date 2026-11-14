@@ -5,7 +5,7 @@
 ## 1. 部署基线与文件指纹（只读审计快照）
 
 - **审计时间**：`2026-11-12T00:03:00Z`（`Europe/London` 同为 `00:03:00`）
-- **生产主机与路径**：`ubuntu@130.162.165.68:/home/ubuntu/surfcore`
+- **生产主机与路径**：`<author-agent-prod-host>:/home/ubuntu/surfcore`
 - **版本说明**：`/home/ubuntu/surfcore` 为非 `.git` 部署目录（`package.json` 版本号 `0.8.8`），以目标文件 SHA-256 哈希作为精确版本锚点：
 
 | 文件路径 | SHA-256 | 行数 / 说明 |

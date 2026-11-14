@@ -29,7 +29,7 @@
    - 本人 Agent 随后自查确认：`wake` 的 `~15,000–16,400` 字符是整段作为 `user/message` 投递并永久留在历史里的“复利”（`role: 4692`、`bili: 1091`、`sticker: 1126`、`style: 169`、`antiAi: 56` 等九成不变）。
    - **为什么选择「静态层前移 / 同会话去重 (`Opt-3`)」而非「下一轮事后替换上一轮历史里的 `user/message`」**：
      - 在 DSH 中，上一轮 `user/message` 后面紧跟着该轮产生的 `7~8` 步 `assistant/message` 与 `tool/result`。若在下一轮去原地修改或替换上一轮的 `user/message`，会导致其后方所有工具步的 Token 偏移量与前缀哈希全部改变，**直接击穿上一轮整条工具链的 KV Cache**！
-     - 反之，核查 [`src/bridge.js:18430-18433`](file:///home/ubuntu/surfcore/src/bridge.js) 可见，代码对 `initialPromptLine` 原本就有现成模式（注释原文：*“只在首次唤醒注入；后续唤醒不再带它 —— 那时它已经在这条 DSH 会话的上下文里了”*），且 `16329` 行的 `withAlignmentContext(key, withSlangContext(promptText))` 还在 `contextTelemetry` 统计之外额外向每轮 `user/message` 头部追加了时间、黑话表与身份对齐块。
+     - 反之，核查 `src/bridge.js:18430-18433` 可见，代码对 `initialPromptLine` 原本就有现成模式（注释原文：*“只在首次唤醒注入；后续唤醒不再带它 —— 那时它已经在这条 DSH 会话的上下文里了”*），且 `16329` 行的 `withAlignmentContext(key, withSlangContext(promptText))` 还在 `contextTelemetry` 统计之外额外向每轮 `user/message` 头部追加了时间、黑话表与身份对齐块。
      - 因此最佳工程解是：**将通用死规则移入 `dsh-persona` System Prompt，将会话级静态块（`roleLine`、`biliBrief`、`sticker` 策略与目录、`provenance`、`preSleep`、`ownerCrossSession`、`alignment`、`slang` 等 ~`12k–14k` 字符）按 `sessionId + staticHash` 仅在会话首轮（或变更时）注入，后续唤醒的 `user/message` 仅投递 `~1.5k–2.2k` 字符的纯动态层（`wakeSnapshot` + 实时状态 + 动态召回）**。这样既**零篡改历史（100% 保住 KV Cache）**，又直接砍掉 **85%+** 的每轮历史复利增长！
 2. **修正 本人 Agent 的 `recentCount: 100` 建议**：源码 `src/bridge.js:18041` 实际仅注入 `wakeRecentLimit: 4` 条近期消息（`snapshot` 均值仅 `1,226` 字），因此**无需修改 `recentCount`**，直接实施 `Opt-3` 即可。
 3. **补齐 本人 Agent 未见的「零交互损失」调用压缩空间（`Opt-4 / Opt-5 / Opt-6`）**：

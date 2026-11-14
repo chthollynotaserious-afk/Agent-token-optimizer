@@ -3,7 +3,7 @@
 # AUTHOR_AGENT_P0_TOKEN_OPTIMIZATION_REPORT — 本人 Agent Token 消耗与运行成本专项审计总报告（Phase 1）
 
 > **执行性质**：严格只读专项审计与方案设计（未修改任何生产代码、Prompt、人格卡、记忆数据、数据库、配置或权限，未在审计过程中重启服务）。
-> **报告目录**：[`research/author-agent-p0-token-audit-phase1/`](file:///e:/AI/Google/Antigravity/Workspace/research/author-agent-p0-token-audit-phase1/)，含全部分报告 `TOKEN_CALL_AUDIT.md`、`CALL_DISTRIBUTION.md`、`CONTEXT_COST_AUDIT.md`、`KV_CACHE_AUDIT.md`、`DAILY_COST_MONITORING.md`、`OPTIMIZATION_PROPOSAL.md`、`DNR_COST_INTEGRATION.md`。
+> **报告目录**：`research/author-agent-p0-token-audit-phase1/`，含全部分报告 `TOKEN_CALL_AUDIT.md`、`CALL_DISTRIBUTION.md`、`CONTEXT_COST_AUDIT.md`、`KV_CACHE_AUDIT.md`、`DAILY_COST_MONITORING.md`、`OPTIMIZATION_PROPOSAL.md`、`DNR_COST_INTEGRATION.md`。
 
 ---
 
