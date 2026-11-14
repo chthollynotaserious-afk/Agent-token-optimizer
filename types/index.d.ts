@@ -47,8 +47,9 @@ export interface PricedUsageResult {
     cacheWrite: number;
     output: number;
     reasoning: number;
-    input: number;
+    input?: number;
     total: number;
+    costSource: 'upstream' | 'table';
   };
 }
 

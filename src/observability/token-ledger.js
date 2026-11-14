@@ -12,7 +12,6 @@ import {
   ZERO_BUCKETS,
   addBuckets,
   inputTokensOf,
-  normalizeUsage,
   priceUsage,
   totalTokensOf,
 } from '../core/model-prices.js';
@@ -54,8 +53,8 @@ export class UniversalTokenLedger {
     metadata = null,
     ts = this.now(),
   }) {
-    const buckets = normalizeUsage(usage);
-    const priced = priceUsage(buckets, { model, at: ts, table: this.priceTable });
+    const priced = priceUsage(usage, { model, at: ts, table: this.priceTable });
+    const buckets = priced.buckets;
     const entry = {
       ts,
       agentId,
@@ -70,7 +69,7 @@ export class UniversalTokenLedger {
       overheadCost: Math.max(0, Number(overheadCost) || 0),
       totalCost: priced.cost.total + Math.max(0, Number(overheadCost) || 0),
       tier: priced.rates.tier,
-      estimatedPrice: priced.rates.estimated,
+      estimatedPrice: priced.cost.costSource === 'upstream' ? false : priced.rates.estimated,
       dataSource: observed ? 'observed' : 'estimated',
       ...(metadata ? { metadata } : {}),
     };

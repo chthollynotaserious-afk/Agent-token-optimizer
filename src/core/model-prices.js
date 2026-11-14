@@ -262,19 +262,65 @@ export function isPeakAt(at = Date.now(), table = DEFAULT_PRICE_TABLE) {
   return false;
 }
 
+function findExactCaseInsensitive(models, target) {
+  if (!target) return null;
+  if (models[target]) return models[target];
+  const lower = target.toLowerCase();
+  for (const [k, entry] of Object.entries(models)) {
+    if (k.toLowerCase() === lower) return entry;
+  }
+  return null;
+}
+
 function resolveModelEntry(model, table = DEFAULT_PRICE_TABLE) {
   const models = table?.models || DEFAULT_PRICE_TABLE.models;
   const key = String(model || '').trim();
   if (key && models[key]) return { entry: models[key], estimated: false };
-  // Prefix / substring fuzzy match (e.g. "claude-sonnet-4-20250514" -> "claude-sonnet-4")
+
   if (key) {
-    const lower = key.toLowerCase();
-    for (const [candidate, entry] of Object.entries(models)) {
-      if (lower.startsWith(candidate.toLowerCase()) || lower.includes(candidate.toLowerCase())) {
+    const tagMatch = /:([a-z0-9._-]+)$/i.exec(key);
+    const routingTag = tagMatch ? tagMatch[1].toLowerCase() : null;
+    if (routingTag === 'free') {
+      const vendor = key.includes('/') ? key.split('/')[0].toLowerCase() : 'openrouter';
+      return {
+        entry: {
+          label: `${key} (Free tier)`,
+          provider: vendor === 'google' ? 'gemini' : vendor,
+          off: per1M(0, 0, 0),
+        },
+        estimated: false,
+      };
+    }
+
+    const withoutTag = tagMatch ? key.slice(0, tagMatch.index) : key;
+    const leaf = withoutTag.includes('/') ? withoutTag.split('/').pop() : withoutTag;
+    const dotNormalizedLeaf = leaf.replace(/(\d+)\.(\d+)/g, '$1-$2');
+    const hasRoutingTag = Boolean(routingTag);
+
+    for (const candidate of [withoutTag, leaf, dotNormalizedLeaf]) {
+      const exact = findExactCaseInsensitive(models, candidate);
+      if (exact) return { entry: exact, estimated: hasRoutingTag };
+    }
+
+    // Longest-key-first fuzzy match so specific variants (e.g. "gpt-4o-mini")
+    // always win over shorter prefixes (e.g. "gpt-4o").
+    const sortedEntries = Object.entries(models).sort((a, b) => b[0].length - a[0].length);
+    const needles = [leaf.toLowerCase(), dotNormalizedLeaf.toLowerCase()];
+
+    for (const [candidate, entry] of sortedEntries) {
+      const candLower = candidate.toLowerCase();
+      if (needles.some((n) => n.startsWith(candLower))) {
+        return { entry, estimated: true };
+      }
+    }
+    for (const [candidate, entry] of sortedEntries) {
+      const candLower = candidate.toLowerCase();
+      if (needles.some((n) => n.includes(candLower))) {
         return { entry, estimated: true };
       }
     }
   }
+
   const fallbackKey = table?.defaultModel || 'deepseek-chat';
   return {
     entry: models[fallbackKey] || Object.values(models)[0],
@@ -307,15 +353,28 @@ export function priceUsage(rawUsage, { model, at = Date.now(), table = DEFAULT_P
   const buckets = normalizeUsage(rawUsage);
   const rates = ratesAt(model, at, table);
   const scale = 1 / 1_000_000;
+
+  const rawCostVal = rawUsage && typeof rawUsage === 'object'
+    ? (rawUsage.cost ?? rawUsage.total_cost)
+    : undefined;
+  const hasUpstreamCost = rawCostVal !== undefined
+    && rawCostVal !== null
+    && rawCostVal !== ''
+    && Number.isFinite(Number(rawCostVal))
+    && Number(rawCostVal) >= 0;
+  const upstreamCost = hasUpstreamCost ? Number(rawCostVal) : null;
+
   const cost = {
-    cacheMiss: buckets.cacheMiss * rates.cacheMiss * scale,
-    cacheHit: buckets.cacheHit * rates.cacheHit * scale,
-    cacheWrite: buckets.cacheWrite * rates.cacheWrite * scale,
-    output: buckets.output * rates.output * scale,
-    reasoning: buckets.reasoning * rates.reasoning * scale,
+    cacheMiss: upstreamCost === 0 ? 0 : buckets.cacheMiss * rates.cacheMiss * scale,
+    cacheHit: upstreamCost === 0 ? 0 : buckets.cacheHit * rates.cacheHit * scale,
+    cacheWrite: upstreamCost === 0 ? 0 : buckets.cacheWrite * rates.cacheWrite * scale,
+    output: upstreamCost === 0 ? 0 : buckets.output * rates.output * scale,
+    reasoning: upstreamCost === 0 ? 0 : buckets.reasoning * rates.reasoning * scale,
     total: 0,
+    costSource: hasUpstreamCost ? 'upstream' : 'table',
   };
-  cost.total = cost.cacheMiss + cost.cacheHit + cost.cacheWrite + cost.output + cost.reasoning;
+  const tableTotal = cost.cacheMiss + cost.cacheHit + cost.cacheWrite + cost.output + cost.reasoning;
+  cost.total = hasUpstreamCost ? upstreamCost : tableTotal;
   return { buckets, rates, cost };
 }
 
