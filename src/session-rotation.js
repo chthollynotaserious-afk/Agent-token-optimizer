@@ -4,9 +4,10 @@
  *
  * 核心原则：
  * 1. 触发阈值：私聊 30 轮 / 群聊 25 轮 / 闲置 >4 小时 / 上下文 >= 120k Tokens。
- * 2. 支柱一（原生滑窗交接）：截取末尾 4~6 条真实对话原文（每条截断 150 字），绝不写入 valence/arousal 等情绪数值。
- * 3. 支柱三（按需调阅提示）：提示新会话可主动检索更早历史。
- * 4. 回滚保障：物理保留旧会话指针于 sessionHistory（最多 20 条），不调用 delete/archive，并重置 staticContextState。
+ * 2. 弥补方案一（原生滑窗交接）：截取末尾 4~6 条真实对话原文（每条截断 150 字），绝不写入 valence/arousal 等情绪数值。
+ * 3. 弥补方案二（轮转前自动沉淀钩子 Auto-Flush Hook）：通过 `onBeforeRotate` 在清空旧会话前触发记忆提取/再巩固。
+ * 4. 弥补方案四（按需调阅提示）：提示新会话可主动检索更早历史。
+ * 5. 回滚保障：物理保留旧会话指针于 sessionHistory（最多 20 条），不调用 delete/archive，并重置 staticContextState。
  */
 
 export const DEFAULT_ROTATION_LIMITS = {
@@ -111,6 +112,18 @@ export function rotateSession(key, st, state, opts = {}) {
 
   const now = Number(opts.now) || Date.now();
   const maxHistory = opts.limits?.maxHistoryEntries ?? DEFAULT_ROTATION_LIMITS.maxHistoryEntries;
+
+  // 弥补方案二（Pre-Rotation Auto-Flush Hook）：轮转截断前触发记忆沉淀/再巩固回调
+  if (typeof opts.onBeforeRotate === 'function') {
+    opts.onBeforeRotate({
+      key,
+      st,
+      fromSessionId: currentSessionId,
+      reason,
+      now,
+      recentMessages: Array.isArray(st.recentMessages) ? st.recentMessages : [],
+    });
+  }
 
   st.pendingHandoff = {
     summary: buildHandoffSummary(st.recentMessages, opts),

@@ -59,7 +59,24 @@
 
 ---
 
-## 三、和一般 Agent 的适配程度（通用性评估与接入指南）
+## 三、为什么需要 Opt-1 的四个弥补方案？（防失忆、防人格重置的核心设计）
+
+很多开发者一听到“每 25~30 轮强制开新会话（Opt-1）”，第一反应往往是担心：**“切会话之后，Agent 会不会像突然失忆一样，忘记刚才在聊什么、语气变生硬，或者找不到半天前说过的事？”**
+
+如果只是粗暴地清空会话重开，确实会立刻出现**语境断裂、未归档记忆丢失、人格重置、远期细节丢失**四个严重退化。因此，我们在 Opt-1 之上配套了**四个互锁弥补方案**，用不到 **1% 的额外上下文体积**，把跨会话体验拉平至几乎无感：
+
+| 弥补方案 | 解决什么退化痛点 | 核心机制 | 对应仓库代码 |
+| :--- | :--- | :--- | :--- |
+| **方案一：交接滑窗**<br>*(Handoff / Raw Tail Buffer)* | 新会话空白启动会丢失最后几句的临场语境与代词指代（如“那后来呢？”“他怎么说？”） | 新会话首轮通过 `consumePendingHandoff()` 自动带入上轮末尾 **4~6 条真实对话原文**（每条限 150 字），配合长期记忆卡无缝衔接（不额外花 LLM 费用做低命中摘要） | `src/session-rotation.js`<br>`buildHandoffSummary()` |
+| **方案二：轮转前自动沉淀**<br>*(Pre-Rotation Auto-Flush Hook)* | 用户偏好、重要约定往往在闲聊中自然产生，若轮转瞬间直接切断，未入库的临时信息会丢失 | 在 `rotateSession()` 重置会话前，通过 **`onBeforeRotate` 钩子**触发记忆提取与再巩固（`RECONSOLIDATION_RATE = 0.15`），将重要事实沉淀进持久化的 Memory Card / Memory Book | `src/session-rotation.js`（`onBeforeRotate`）<br>`src/memory-reconsolidation.js` |
+| **方案三：情绪与精力动量延续**<br>*(Emotional Momentum Carryover)* | 传统切会话会导致“人格重置”——上一秒还在开玩笑或情绪低落，新会话一开瞬间变回客套默认腔 | 将情绪（`valence / arousal / needs`）与精力（`energy`）**独立持久化落盘并按半衰期衰减**，驱动心境一致记忆召回（`moodCongruenceScore`，权重 `0.18`）与主动偏置，跨会话自然延续语调与心理距离 | `src/emotion-state.js`<br>`src/memory-reconsolidation.js` |
+| **方案四：按需调阅代替全量常驻**<br>*(On-Demand Recall)* | 担心用户隔了半天突然回溯早先话题（如“上午说的那家店叫什么？”）时答不上来 | 平时只保留轻量上下文，不为了 1% 的回溯概率让 100% 的日常请求背负 150k+ 历史；同时物理保留 `sessionHistory` 并在首轮注入 **「早前历史调阅提示」**，真正需要回溯时再按需调用检索工具查询 | `src/session-rotation.js`（`sessionHistory` & 调阅提示） |
+
+> **工程踩坑实录（方案三的重要演进）**：最初设计曾尝试在新会话首轮直接注入 `[交接心境: ..., valence: 0.35, arousal: 0.20]` 这类显式数值；但生产实测发现，大模型读到精确数字后会把它们当成**“剧本台词注解”**去刻意表演，反而显得生硬做作。因此在最终落地的 `src/session-rotation.js` 与 `src/emotion-state.js` 中，**严禁将 `valence/arousal` 或精力数值写进交接 Prompt**，而是通过独立持久化状态、心境一致的记忆筛选以及原生对话切片，让语气和情绪自然延续。
+
+---
+
+## 四、和一般 Agent 的适配程度（通用性评估与接入指南）
 
 本仓库的代码采用**纯原生 JavaScript（ESM，Node.js 20+，零第三方依赖）**编写，核心算法与具体聊天平台（如 QQ/OneBot）或特定 Agent 运行时**解耦**。
 
@@ -71,7 +88,8 @@
 
 | 模块文件 | 对一般 Agent 的适配度 | 接入前提 | 典型接入方式 |
 | :--- | :--- | :--- | :--- |
-| `src/session-rotation.js` | ⭐⭐⭐⭐⭐ **极高（完全通用）** | 你的 Agent 维护 `sessionId` 和近期消息数组 | 每轮前调用 `evaluateSessionRotation()` / `rotateSession()`；建新会话时用 `consumePendingHandoff()` 注入交接滑窗 |
+| `src/session-rotation.js` | ⭐⭐⭐⭐⭐ **极高（完全通用）** | 你的 Agent 维护 `sessionId` 和近期消息数组 | 每轮前调用 `evaluateSessionRotation()` / `rotateSession()`（支持挂载 `onBeforeRotate` 记忆沉淀钩子）；建新会话时用 `consumePendingHandoff()` 注入交接滑窗 |
+| `src/emotion-state.js`<br>`src/memory-reconsolidation.js` | ⭐⭐⭐⭐⭐ **极高（完全通用）** | 希望长程交互 Agent 具备跨会话情绪/精力连续性与心境记忆召回 | 通过 `createEmotionStateManager()` 独立持久化并衰减状态，传入 `selectContext()` 参与 `moodCongruenceScore` 排序 |
 | `src/static-context-dedup.js`<br>`src/prompt-fingerprint.js` | ⭐⭐⭐⭐⭐ **极高（完全通用）** | 你能把 Prompt 拆分为「静态规则块」和「动态对话/状态块」 | 调用 `evaluateStaticDedup()` 判断本轮能否省略静态块；模型调用成功后调 `commitStaticDedupState()` |
 | `src/context-selector.js`<br>`src/token-budget.js`<br>`src/token-guard.js` | ⭐⭐⭐⭐⭐ **极高（完全通用）** | 需要把记忆/RAG/历史片段装进固定 Token 预算 | 用 `selectContext(ctx, budget)` 裁剪上下文，并接入 `visible()` 做多租户/多场景权限兜底 |
 | `src/token-ledger.js`<br>`src/tool-cost-attribution.js` | ⭐⭐⭐⭐⭐ **极高（完全通用）** | API 响应返回标准 Token `usage`（含缓存命中字段） | 在模型响应钩子写入账本，通过 `buildToolAttribution()` 计算每个工具的真实引发成本 |
@@ -90,13 +108,13 @@
 
 ---
 
-## 四、目录结构
+## 五、目录结构
 
 ```text
 .
 ├── package.json
 ├── README.md
-├── src/                        # Opt-1~5 核心引擎、预算、门控与归因模块（零依赖 ESM）
+├── src/                        # Opt-1~5 核心引擎、预算、门控、情绪动量与归因模块（零依赖 ESM）
 ├── scripts/                    # 单元测试、验证脚本、Opt-1 回滚与 Opt-2 清理脚本
 │   └── patches/                # 生产环境落地补丁示例（apply_opt1_and_cost / apply_opt45_patches 等）
 └── docs/
@@ -107,7 +125,7 @@
 
 ---
 
-## 五、快速验证（本地运行单元测试）
+## 六、快速验证（本地运行单元测试）
 
 要求 Node.js 20+（零第三方依赖，纯原生 `node:test`）：
 
@@ -115,15 +133,15 @@
 npm test
 ```
 
-或单独运行上下文选择器与成本计算测试：
+或单独运行核心模块单元测试（上下文隔离、费用计算、情绪与再巩固、会话轮转与四大弥补机制）：
 
 ```bash
-node --test scripts/test-context-selector.mjs scripts/test_cost_calc.mjs
+node --test scripts/test-context-selector.mjs scripts/test_cost_calc.mjs scripts/test-emotion-memory-v2.mjs scripts/test-session-rotation.mjs
 ```
 
 ---
 
-## 六、核心设计红线（迁移到其他 Agent 时也建议遵守）
+## 七、核心设计红线（迁移到其他 Agent 时也建议遵守）
 
 1. **绝不盲目调高 `Compaction` 触发上限来“躲压缩”**：例如保持 `thresholdRatio` 在合理安全区（如 `0.22`），避免日常调用长期背负超大上下文，防止 5~20 分钟缓存 TTL 超时后的冷未命中惩罚——正确的解法是用 **Opt-1 主动轮转** 替代被动压缩。
 2. **保留轻量核心记忆（`memory-card` / `memory-book`）**：两者合计在实测中不足总输入的 `0.2%`，却是替代超长流水账历史、支撑无损轮转的核心支柱，切忌“为了省 Token 把长期记忆也砍掉”。
