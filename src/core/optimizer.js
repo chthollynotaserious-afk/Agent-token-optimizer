@@ -236,6 +236,38 @@ export class UniversalAgentOptimizer {
     return entry;
   }
 
+  /**
+   * High-level single-call wrapper combining prepareRequest -> invokeUpstream -> afterResponse.
+   */
+  async optimizeRequest({ invokeUpstream, ...ctx } = {}) {
+    if (typeof invokeUpstream !== 'function') {
+      throw new TypeError('optimizeRequest: invokeUpstream callback is required');
+    }
+    const prepared = await this.prepareRequest(ctx);
+    const response = await invokeUpstream({
+      ...ctx,
+      sessionId: prepared.sessionId,
+      conversationKey: prepared.conversationKey,
+      messages: prepared.messages,
+      tools: prepared.tools,
+      staticText: prepared.staticText,
+      handoffText: prepared.handoffText,
+      prepared,
+    });
+    const entry = await this.afterResponse(ctx, response || {}, prepared);
+    return {
+      response,
+      prepared,
+      entry,
+      telemetry: {
+        ...entry,
+        cacheCheck: prepared.cacheCheck,
+        rotated: prepared.rotated,
+        rolledBack: prepared.rolledBack,
+      },
+    };
+  }
+
   getMetrics() {
     return {
       ledger: this.ledger.summary(),

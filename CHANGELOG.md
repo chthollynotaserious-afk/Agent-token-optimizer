@@ -1,8 +1,19 @@
+[English](CHANGELOG.md) | [简体中文](CHANGELOG.zh-CN.md)
+
 # Changelog
 
-All notable changes to **Universal Agent Optimizer** (formerly `denia-token-optimizer`) are documented in this file.
+All notable changes to **Universal Agent Optimizer** (formerly `agent-token-optimizer (v1)`) are documented in this file.
 
-## [2.0.0-alpha.1] - 2026-11-14 (`feature/universal-agent-optimizer`)
+## [2.0.0-alpha.2] - 2026-11-14 (`feature/p2-5-cli-types-sdk`)
+
+### Added
+- **CLI Entrypoint (`bin/uao.js`)**: Added `uao proxy`, `uao benchmark`, `uao inspect-ledger`, `--help`, and `--version`, wired via `package.json` `"bin"`.
+- **TypeScript Declarations (`types/index.d.ts`)**: Full type coverage for all exports in `src/index.js`, wired via `"types"` and `"exports['.'].types"`.
+- **Python Lightweight Proxy Client (`python/uao_client.py`, `python/README.md`)**: Zero-dependency Python 3.9+ stdlib client for `/v1/chat/completions`, `/v1/messages`, `/health`, and `/metrics`, plus OpenAI/LangGraph proxy examples.
+- **Ergonomic API & Packaging**: Added `UniversalAgentOptimizer.optimizeRequest()`, default optimizer instantiation in `createProxyServer()`, `"files"` whitelist for clean `npm pack` distribution, and bilingual `README.md` (English) + `README.zh-CN.md` (Simplified Chinese).
+- **Verification**: Added `tests/unit/cli-and-types.test.mjs` and `tests/integration/python-client.test.mjs`.
+
+## [2.0.0-alpha.1] - 2026-11-14 (`feature/universal-agent-optimizer`, merged into `main`)
 
 ### Added
 - **Architecture & Research Docs**: Added `docs/COMPETITOR_AUDIT.md`, `docs/ARCHITECTURE_GAP_ANALYSIS.md`, `docs/DIFFERENTIATION.md`, `docs/ARCHITECTURE.md`, `docs/BENCHMARK.md`, and `docs/ROADMAP.md`.

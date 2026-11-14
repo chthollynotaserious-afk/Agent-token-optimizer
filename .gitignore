@@ -2,4 +2,7 @@ node_modules/
 *.log
 *.bak
 *.bak-*
+*.tgz
+__pycache__/
+*.pyc
 .DS_Store

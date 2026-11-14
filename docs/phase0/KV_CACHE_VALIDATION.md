@@ -1,8 +1,10 @@
-# Denia KV Cache 机制验证与成本边界校正报告 (`KV_CACHE_VALIDATION.md`)
+[English](KV_CACHE_VALIDATION.en.md) | [简体中文](KV_CACHE_VALIDATION.md)
+
+# 本人 Agent KV Cache 机制验证与成本边界校正报告 (`KV_CACHE_VALIDATION.md`)
 
 ## 1. 评审文档第 4 节三项核心校正结论（基于线上真实 Trace 实证）
 
-本报告严格遵循评审文档第 4 节要求，使用线上 `/srv/denia/data/state/context-telemetry-bridge.jsonl` 与 `session-5d062d1c-b11c-4cec-869f-7db1148cf4e0.v4.jsonl.zstd` 的实测数据，对前期讨论中的三项边界问题作出精确校正。
+本报告严格遵循评审文档第 4 节要求，使用线上 `/srv/agent/data/state/context-telemetry-bridge.jsonl` 与 `session-5d062d1c-b11c-4cec-869f-7db1148cf4e0.v4.jsonl.zstd` 的实测数据，对前期讨论中的三项边界问题作出精确校正。
 
 ---
 

@@ -1,3 +1,5 @@
+[English](CONTEXT_COST_AUDIT.en.md) | [简体中文](CONTEXT_COST_AUDIT.md)
+
 # CONTEXT_COST_AUDIT — 单次调用 141,994 Token 上下文构成全拆解
 
 > 实测核心反差（来源：`session.v4.jsonl.zstd`、`context-telemetry-bridge.jsonl`、`token-usage.jsonl`）：
@@ -68,9 +70,9 @@
 
 ---
 
-## 五、结合 Denia 自测报告（`Denia-上下文成本实测-20261111.md`）的交叉验证与源码勘误
+## 五、结合 本人 Agent 自测报告（`本人 Agent-上下文成本实测-20261111.md`）的交叉验证与源码勘误
 
-Denia 在只读沙箱环境下读取 `context-telemetry-bridge.jsonl`（以她自身 `private:1587592535` Turn 92 为样本）完成了自我成本审计。将其结论与 Bridge 源码及 DSH `.v4.jsonl.zstd` 内部明细对齐，得出关键确认与三项深层技术勘误：
+本人 Agent 在只读沙箱环境下读取 `context-telemetry-bridge.jsonl`（以她自身 `private:1587592535` Turn 92 为样本）完成了自我成本审计。将其结论与 Bridge 源码及 DSH `.v4.jsonl.zstd` 内部明细对齐，得出关键确认与三项深层技术勘误：
 
 ### 1. 完全吻合的实证（确认高优先级方向）
 - **单轮步进递增 + 大文件读取乘数效应**：Turn 92 共 `7` 步（`168,991 -> 175,398` 输入），第 4 步整份读取 `5,880` 字文件直接造成第 5 步 `cacheMiss` 跳升至 **`3,373`**，且这 `~3.4k` Token 从第 5 步起永久并入当轮及后续所有续跳的输入基数。
@@ -78,14 +80,14 @@ Denia 在只读沙箱环境下读取 `context-telemetry-bridge.jsonl`（以她�
 
 ### 2. 受沙箱视角限制的三处源码级勘误与深层机理补全
 1. **「Bridge 1.6 万字 vs 会话 17.5 万 Token」并非割裂关系，而是微分与积分的因果关系（$\text{History}_{92} \approx \sum_{t=1}^{92} (\text{base}_t + \text{toolResult}_t)$）**：
-   - Denia 看到单轮 `promptChars: 16,398`（其中 `base: 14,758`、`role: 4,692`）只占 `175,000` 总输入的十分之一，推断“剩下的十分之九不在 Bridge 里，而在会话本身”。
+   - 本人 Agent 看到单轮 `promptChars: 16,398`（其中 `base: 14,758`、`role: 4,692`）只占 `175,000` 总输入的十分之一，推断“剩下的十分之九不在 Bridge 里，而在会话本身”。
    - 穿透 `.v4.jsonl.zstd` 实测可见：主会话 `session-5d06` 累积的 `1.69 MB` `user/message` 中，**超过 `80%–85%` 正是 Bridge 在过去 92 次唤醒里，每次把 `11.6k–14.8k` 字符的静态 `base`（`role` + `bili.briefBlock` + `stickerStrategy` + 规则）作为可变 `user/message` 追加进历史所攒下的存量！**
    - 更致命的是：因为 `base` 被拼在每轮新增 `user/message`（即变动历史的**最末端**），在每轮唤醒的第 1 步（`initial`），这 `~4,800` Token 静态规则由于前方历史前缀已变，**100% 触发高价 `Cache Miss`（Turn 92 Step 1 的 `9,375` 未命中即有约一半源于此）**；随后在同轮 Step 2..7 及后续所有轮次中作为历史底盘反复重算！
    - **推论**：如果只做“每 20 轮开新会话 (`Opt-1`)”而不剥离每轮 `user/message` 中的静态 `base` (`Opt-3`)，仅跑 20 轮仍会在历史中堆出 `20 × 14.8k ≈ 296 KB`（约 `90k+` Token）的重复规则！**`Opt-1`（控积分上限）与 `Opt-3`（砍每轮增量 80%）必须联合实施。**
 2. **`recentCount: 100` 并非“每次注入 100 条近期消息”**（重要源码勘误）：
-   - Denia 建议“把快照 `recentCount` 从 `100` 降到 `20`”，但检查 [`src/bridge.js:16316`](file:///home/ubuntu/surfcore/src/bridge.js) 证实，遥测字段 `recentCount` 记录的是内存环形队列 `wakeState.recentMessages.length` 的缓冲容量；
+   - 本人 Agent 建议“把快照 `recentCount` 从 `100` 降到 `20`”，但检查 [`src/bridge.js:16316`](file:///home/ubuntu/surfcore/src/bridge.js) 证实，遥测字段 `recentCount` 记录的是内存环形队列 `wakeState.recentMessages.length` 的缓冲容量；
    - 真正组装唤醒快照的函数 `buildWakeSnapshotV2`（`src/bridge.js:18040-18044`）默认限制 `wakeMessageLimit: 12`、**`wakeRecentLimit: 4`**（只取最后 4 条）、`wakeSelfRecentLimit: 1`、`wakeMaxChars: 6000`。全天 180 次唤醒实测 `snapshot` 平均仅有 **`1,226` 字符**！
    - 因此 **削减 `recentMessages` 队列长度几乎不会降低输入 Token**；`13,482–16,514` 字符里真正不断重复并写入会话历史的噪音，是本文第三节拆解的 **`base` 静态规则与人格层（`11,619` 平均字符）**。
 3. **`16.4k` 与 `175k` 之间还包含 `~31.5k` 固定底盘与 `50×` 价格杠杆下的首跳未命中黑洞**：
-   - Denia 受限未能读取 `.v4.jsonl.zstd` 中的 `request/header` 与 `system/message`。实际上 `175k` 中约 **`~26.7k` Token（`124` 个工具 Schema `80,122` 字，含 19 个已禁用的 `onebot-min` 死工具）+ `~4.8k` Token（`dsh-persona`）= `~31.5k` Token** 在 Turn 1 新建会话就会携带；
+   - 本人 Agent 受限未能读取 `.v4.jsonl.zstd` 中的 `request/header` 与 `system/message`。实际上 `175k` 中约 **`~26.7k` Token（`124` 个工具 Schema `80,122` 字，含 19 个已禁用的 `onebot-min` 死工具）+ `~4.8k` Token（`dsh-persona`）= `~31.5k` Token** 在 Turn 1 新建会话就会携带；
    - 此外，Turn 92 作为连续活跃会话，Step 2–7 的 `cacheMiss` 只有 `166–642` Token，易让人误以为“KV Cache 效率已经很好，问题只在于基数”；但跨全天来看，由于未命中单价是命中的 **`50×`**，冷群 `proactiveCheck`（`47` 次花 `¥3.07`，54% 零出站）、MCP 抖动与 **`14` 次隐性 `compaction/summary` 重写前缀（`~¥1.76`）** 使得仅占 **`3.54%` 的未命中吞噬了全天真实账单的 `53.4%–57%+`**。

@@ -28,6 +28,7 @@ jobs:
           node --check src/index.js
           node --check src/core/optimizer.js
           node --check src/proxy/server.js
+          node --check bin/uao.js
 
       - name: Run Unit Tests
         run: npm run test:unit
@@ -38,5 +39,8 @@ jobs:
       - name: Run Legacy Compatibility & Regression Tests
         run: npm run test:regression
 
-      - name: Run Simulated Benchmark Smoke Suite
-        run: npm run benchmark
+      - name: Run Simulated Benchmark & Package Smoke Check
+        run: |
+          npm run benchmark
+          node bin/uao.js --version
+          npm pack --dry-run
