@@ -2,6 +2,15 @@
 
 > 从 Agent 生产环境抽取的通用上下文工程与成本优化模块：在**不削弱人格、记忆、情绪与社交安全**的前提下，解决长会话前缀缓存击穿、静态规则重复入史、死工具 Schema 膨胀与无效唤醒空转问题。
 
+### 实测效果对比（优化前 vs 优化后）
+
+| 阶段 | 实测消费 | 降幅 |
+| :--- | :--- | :--- |
+| **优化前（左柱）** | `20.23` | 基线 |
+| **优化后（右柱）** | **`7.25`** | **直降 `64.2%`（节省 `12.98`）** |
+
+<img src="docs/assets/cost-comparison.png" alt="优化前后实测对比（左：优化前 20.23，右：优化后 7.25）" width="106" />
+
 ---
 
 ## 一、为什么“高命中率”仍然会很贵？（实证痛点）
@@ -43,6 +52,7 @@
 ├── scripts/                    # 单元测试、验证脚本、Opt-1 回滚与 Opt-2 清理脚本
 │   └── patches/                # Opt-1~5 生产补丁脚本（apply_opt1_and_cost / apply_opt1_hardening / apply_opt45_patches / apply_static_context_dedup / patch-dsh-session-guard 等）
 └── docs/
+    ├── assets/                 # 实测对比截图等文档资源
     ├── phase0/                 # KV Cache 前缀验证与静态上下文审计报告
     └── phase1/                 # 全链 Token 审计与 Opt-1~6 优化方案总报告
 ```
