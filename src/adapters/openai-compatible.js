@@ -11,7 +11,9 @@ export class OpenAICompatibleAdapter extends BaseAgentAdapter {
 
   async transformRequest(payload = {}, meta = {}) {
     const messages = Array.isArray(payload.messages) ? payload.messages : [];
-    const systemMsg = messages.find((m) => m.role === 'system');
+    const systemMsgs = messages.filter((m) => m.role === 'system');
+    const firstSystemMsg = systemMsgs[0] || null;
+    const extraSystemMsgs = systemMsgs.slice(1);
     const nonSystem = messages.filter((m) => m.role !== 'system');
 
     const prepared = await this.beforeRequest({
@@ -21,7 +23,7 @@ export class OpenAICompatibleAdapter extends BaseAgentAdapter {
       provider: meta.provider || this.provider,
       model: payload.model || meta.model || 'gpt-4o-mini',
       scene: meta.scene || 'default',
-      staticText: meta.staticText || (typeof systemMsg?.content === 'string' ? systemMsg.content : ''),
+      staticText: meta.staticText || (typeof firstSystemMsg?.content === 'string' ? firstSystemMsg.content : ''),
       messages: nonSystem,
       tools: payload.tools || [],
       currentInputTokens: meta.currentInputTokens,
@@ -29,9 +31,9 @@ export class OpenAICompatibleAdapter extends BaseAgentAdapter {
     });
 
     const outMessages = [];
-    // Keep system message stable at index 0 unless explicitly omitted into dynamic turn
-    if (systemMsg) {
-      outMessages.push(systemMsg);
+    // Keep system message(s) stable at the prefix
+    if (firstSystemMsg) {
+      outMessages.push(firstSystemMsg, ...extraSystemMsgs);
     } else if (prepared.staticText) {
       outMessages.push({ role: 'system', content: prepared.staticText });
     }
