@@ -94,3 +94,5 @@ export {
 export { MemoryInjectionPlanner } from './memory/injection-budget.js';
 export { MemoryAssociationIndex } from './memory/association.js';
 export { MemoryConsolidator } from './memory/consolidator.js';
+export { MemoryPolicyEngine } from './memory/policy-engine.js';
+export { RPMemoryAdapter } from './memory-adapters/rp-adapter.js';

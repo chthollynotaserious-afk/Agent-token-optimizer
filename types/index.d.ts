@@ -505,3 +505,18 @@ export class MemoryConsolidator {
   enqueueConsolidation(job?: Record<string, unknown>): Record<string, unknown>;
   consolidateScope(opts?: Record<string, unknown>): Promise<Record<string, unknown>>;
 }
+
+export class MemoryPolicyEngine {
+  constructor(opts: { provider: MemoryProvider; associationIndex?: MemoryAssociationIndex | null; ledger?: UniversalTokenLedger | null; auditLog?: AuditLog | null; enabled?: boolean; maxMemoryTokens?: number; minRelevanceScore?: number });
+  shouldEncode(opts?: { content?: unknown; ephemeral?: boolean; minChars?: number }): { encode: boolean; reason: string };
+  encodeEpisodic(opts?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  prepareMemoryContext(opts?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  archiveDerivedRecord(id: string, scope: Record<string, string>, opts?: { reason?: string }): Promise<Record<string, unknown>>;
+}
+
+export class RPMemoryAdapter {
+  constructor(opts?: { provider?: MemoryProvider | null; retriever?: MemoryRetriever | null; injectionPlanner?: MemoryInjectionPlanner | null; auditLog?: AuditLog | null; memoryEnabled?: boolean });
+  deriveRpScope(hostCtx?: Record<string, unknown>): Record<string, string> | null;
+  upsertNarrativeState(hostCtx?: Record<string, unknown>, narrativeState?: Record<string, unknown>, opts?: { sourceRefs?: string[]; reason?: string }): Promise<Record<string, unknown>>;
+  prepareTurn(opts?: Record<string, unknown>): Promise<Record<string, unknown>>;
+}
