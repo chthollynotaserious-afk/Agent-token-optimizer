@@ -29,6 +29,9 @@ For detailed design rationale and competitive analysis, see [`docs/`](./docs/):
 - [Architecture Gap Analysis](./docs/ARCHITECTURE_GAP_ANALYSIS.md)
 - [Differentiation Strategy](./docs/DIFFERENTIATION.md)
 - [Universal Architecture](./docs/ARCHITECTURE.md)
+- [Layered Memory Architecture (Opt-In)](./docs/MEMORY_ARCHITECTURE.md)
+- [Installation & Diagnostics Guide](./docs/INSTALL.md)
+- [Compatibility Matrix](./docs/COMPATIBILITY.md)
 - [Benchmark Specification](./docs/BENCHMARK.md)
 - [Roadmap](./docs/ROADMAP.md)
 

@@ -29,6 +29,9 @@ Universal Agent Optimizer 致力于在不牺牲 Agent 任务成功率、不击�
 - [架构差距分析](./docs/ARCHITECTURE_GAP_ANALYSIS.zh-CN.md)
 - [差异化定位文档](./docs/DIFFERENTIATION.zh-CN.md)
 - [通用化系统架构](./docs/ARCHITECTURE.zh-CN.md)
+- [分层记忆架构说明（默认关闭 / 可选启用）](./docs/MEMORY_ARCHITECTURE.zh-CN.md)
+- [安装与诊断指南](./docs/INSTALL.zh-CN.md)
+- [兼容性矩阵](./docs/COMPATIBILITY.zh-CN.md)
 - [Benchmark 设计规范](./docs/BENCHMARK.zh-CN.md)
 - [演进路线图](./docs/ROADMAP.zh-CN.md)
 
