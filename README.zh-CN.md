@@ -55,20 +55,64 @@ Universal Agent Optimizer 致力于在不牺牲 Agent 任务成功率、不击�
 
 ---
 
-## 快速上手
+## UAO 不会做什么
 
-### 1. CLI 命令行模式（`npx uao`）
+- 不绕过模型服务商网页版或 App 的额度与访问限制。
+- 不提供免费 API 额度或 API 密钥。
+- 不保证固定比例的 Token 或费用节省。
+- 不得以牺牲任务正确性、关键记忆、权限边界或用户数据为代价减少 Token。
+
+---
+
+## 支持的集成方式与兼容性矩阵
+
+完整各路径状态（`Verified`、`Partial`、`Mock-only`、`Unsupported`、`Planned`）请见 [兼容性矩阵](./docs/COMPATIBILITY.zh-CN.md)。
+
+- **核心 API（`universal-agent-optimizer`）**：框架无关的 Node.js（`>=20.0.0`）ESM 库——全部核心模块已验证。
+- **本地 HTTP 代理（`uao proxy`）**：兼容 OpenAI / Anthropic / DeepSeek 的透明代理（默认绑定 `127.0.0.1`）——Token 账本、缓存门控与外部优化器协调已验证；主动唤醒控制、事务性会话轮转与身份感知 ACL 需要 Agent 框架提供集成信号。
+- **DSH Bundle 适配器（[`packages/dsh-bundle`](./packages/dsh-bundle/README.zh-CN.md)）**：独立的 `universal-agent-optimizer-dsh` 包，提供 `dsh.bundle.patch` -> `cordis.patch.yml`——已在 `@deepseek-ai/dsh@0.2.1-rc.5` 上完成验证。
+
+---
+
+## 快速安装与验证
+
+> [!NOTE]
+> `universal-agent-optimizer`（`2.0.0-alpha.2`）**尚未发布**到 npm，且 npm 上无作用域包名 `uao` 属于另一个无关的 `0.0.0` 包。**请勿运行 `npx uao ...`**。发布前请使用本地克隆或打包 `.tgz`（详见 [安装与诊断指南](./docs/INSTALL.zh-CN.md)）。
+
+### 1. CLI 命令行模式（`uao setup`、`uao doctor`、`uao proxy`、`uao uninstall`）
 
 ```bash
+git clone https://github.com/chthollynotaserious-afk/Agent-token-optimizer.git
+cd Agent-token-optimizer
+
+# 交互式/引导安装（安全默认值：仅绑定 127.0.0.1、环境变量读取凭据、写入前自动备份）
+node bin/uao.js setup --mode proxy --upstream https://api.openai.com --yes
+
+# 环境与安装状态诊断（支持人类可读双语输出或 --json）
+node bin/uao.js doctor --json
+
 # 启动本地透明 HTTP 代理（兼容 OpenAI / DeepSeek / Anthropic / Ollama 等）
-npx uao proxy --upstream https://api.openai.com --port 8787 --provider openai
+node bin/uao.js proxy --upstream https://api.openai.com --port 8787 --provider openai
 
 # 运行 10 场景零费用模拟 Benchmark
-npx uao benchmark
+node bin/uao.js benchmark
 
 # 查看 JSONL Token 账本统计
-npx uao inspect-ledger ./data/ledger.jsonl
+node bin/uao.js inspect-ledger ./data/ledger.jsonl
+
+# 安全卸载（默认保留 Token 账本与用户自建文件）
+node bin/uao.js uninstall --yes
 ```
+
+---
+
+## 安全模型与默认安全策略
+
+- **默认仅监听回环地址：** `uao setup` 与 `uao proxy` 默认绑定 `127.0.0.1`（除非显式指定，绝不默认绑定 `0.0.0.0`）。
+- **配置不落盘明文密钥：** API Key 通过环境变量（`OPENAI_API_KEY`、`ANTHROPIC_API_KEY`、`DEEPSEEK_API_KEY`）读取，并在诊断输出中自动脱敏。
+- **自动备份与可逆卸载：** `uao setup` 与 `uao uninstall` 在修改或移除前都会自动备份已有配置文件；默认绝不删除 Token 账本或用户自建配置，除非显式传入 `--purge-data --confirm-purge`。
+
+---
 
 ### 2. JS / TypeScript 嵌入式中间件模式
 

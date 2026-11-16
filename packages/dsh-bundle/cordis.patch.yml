@@ -1,0 +1,7 @@
+- insert:
+    - id: uao-optimizer
+      name: 'universal-agent-optimizer-dsh'
+      config:
+        enabled: true
+        mode: observe
+        ledgerFile: ''

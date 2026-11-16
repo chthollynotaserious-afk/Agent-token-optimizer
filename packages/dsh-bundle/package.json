@@ -1,0 +1,53 @@
+{
+  "name": "universal-agent-optimizer-dsh",
+  "version": "2.0.0-alpha.2",
+  "description": "DSH (DeepSeek Harness) bundle adapter for Universal Agent Optimizer. | 面向 DeepSeek Harness (DSH) 的 Universal Agent Optimizer 适配包。",
+  "type": "module",
+  "main": "./src/index.js",
+  "types": "./types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./types/index.d.ts",
+      "default": "./src/index.js"
+    },
+    "./package.json": "./package.json",
+    "./cordis.patch.yml": "./cordis.patch.yml"
+  },
+  "files": [
+    "src",
+    "types",
+    "cordis.patch.yml",
+    "README.md",
+    "README.zh-CN.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20.0.0",
+    "dsh": ">=0.2.1-rc.2 <0.3.0-0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "dependencies": {
+    "universal-agent-optimizer": "^2.0.0-alpha.2"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.0.5"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    }
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh-plugin",
+    "universal-agent-optimizer",
+    "ai-agent",
+    "kv-cache",
+    "token-optimization"
+  ],
+  "license": "MIT"
+}

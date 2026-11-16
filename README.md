@@ -55,20 +55,64 @@ For detailed design rationale and competitive analysis, see [`docs/`](./docs/):
 
 ---
 
-## Quick Start
+## What UAO Does Not Do
 
-### 1. CLI Mode (`npx uao`)
+- It does not bypass a model provider's web/app quotas or access restrictions.
+- It does not provide free API credits or API credentials.
+- It does not guarantee a fixed percentage of savings.
+- It must not sacrifice task correctness, critical memory, authorization boundaries, or user data to reduce tokens.
+
+---
+
+## Supported Integrations & Compatibility Matrix
+
+See the full [Compatibility Matrix](./docs/COMPATIBILITY.md) for per-path status (`Verified`, `Partial`, `Mock-only`, `Unsupported`, `Planned`).
+
+- **Core API (`universal-agent-optimizer`)**: Framework-neutral Node.js (`>=20.0.0`) ESM library — all core modules verified.
+- **Local HTTP Proxy (`uao proxy`)**: OpenAI / Anthropic / DeepSeek compatible transparent proxy (`127.0.0.1` default bind) — token ledger, cache gate, and external optimizer coordination verified; higher-level lifecycle signals (invocation control, session rotation, context ACL) require framework integration.
+- **DSH Bundle Adapter ([`packages/dsh-bundle`](./packages/dsh-bundle/README.md))**: Separate `universal-agent-optimizer-dsh` package with `dsh.bundle.patch` -> `cordis.patch.yml` — verified on `@deepseek-ai/dsh@0.2.1-rc.5`.
+
+---
+
+## Quick Install & Verification
+
+> [!NOTE]
+> `universal-agent-optimizer` (`2.0.0-alpha.2`) is **not yet published** on npm, and the unscoped npm package `uao` belongs to an unrelated `0.0.0` package. Do not run `npx uao ...`. Use a local clone or packed `.tgz` until published (see [Installation & Diagnostics Guide](./docs/INSTALL.md)).
+
+### 1. CLI Mode (`uao setup`, `uao doctor`, `uao proxy`, `uao uninstall`)
 
 ```bash
+git clone https://github.com/chthollynotaserious-afk/Agent-token-optimizer.git
+cd Agent-token-optimizer
+
+# Guided setup (safe defaults: 127.0.0.1 bind, env-var credentials, backup before write)
+node bin/uao.js setup --mode proxy --upstream https://api.openai.com --yes
+
+# Verify environment and installation status (human-readable or --json)
+node bin/uao.js doctor --json
+
 # Start local transparent HTTP proxy (OpenAI / DeepSeek / Anthropic compatible)
-npx uao proxy --upstream https://api.openai.com --port 8787 --provider openai
+node bin/uao.js proxy --upstream https://api.openai.com --port 8787 --provider openai
 
 # Run the 10-scenario zero-cost simulated benchmark
-npx uao benchmark
+node bin/uao.js benchmark
 
 # Inspect a JSONL token ledger file
-npx uao inspect-ledger ./data/ledger.jsonl
+node bin/uao.js inspect-ledger ./data/ledger.jsonl
+
+# Safe uninstall (preserves ledgers and user-authored files)
+node bin/uao.js uninstall --yes
 ```
+
+---
+
+## Security Model & Safe Defaults
+
+- **Loopback-only proxy by default:** `uao setup` and `uao proxy` bind to `127.0.0.1` (never `0.0.0.0` unless explicitly requested).
+- **No plaintext secrets in config:** API keys are read from environment variables (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `DEEPSEEK_API_KEY`) and redacted in diagnostic output.
+- **Backup & reversible uninstall:** `uao setup` and `uao uninstall` back up existing config files before writing/removing, and `uao uninstall` never deletes token ledgers or user-authored files without explicit `--purge-data --confirm-purge`.
+
+---
 
 ### 2. Embedded Middleware Mode (JS / TypeScript)
 

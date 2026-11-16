@@ -1,7 +1,7 @@
 {
   "name": "universal-agent-optimizer",
   "version": "2.0.0-alpha.2",
-  "description": "An open-source optimization middleware for long-running AI agents: KV-cache economics, transactional session lifecycle, tool governance & output retention, invocation control, and provider-neutral observability.",
+  "description": "Long-running AI agent optimization: context lifecycle, KV-cache cost control, tool governance and invocation efficiency. | 长期运行 AI Agent 优化：上下文生命周期、KV Cache 成本控制、工具治理与调用效率。",
   "type": "module",
   "main": "./src/index.js",
   "types": "./types/index.d.ts",

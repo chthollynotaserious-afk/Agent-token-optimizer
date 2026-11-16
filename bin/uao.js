@@ -3,7 +3,10 @@
  * Universal Agent Optimizer CLI (`uao`)
  *
  * Commands:
- *   uao proxy [--port 8787] [--host 127.0.0.1] [--upstream <url>] [--provider openai] [--ledger <file>]
+ *   uao setup     [--mode dsh|proxy|library] [--profile <name>] [--lang auto|en|zh-CN]
+ *   uao doctor    [--profile <name>] [--config <path>] [--json] [--lang auto|en|zh-CN]
+ *   uao uninstall [--profile <name>] [--config <path>] [--purge-data] [--lang auto|en|zh-CN]
+ *   uao proxy     [--port 8787] [--host 127.0.0.1] [--upstream <url>] [--provider openai] [--ledger <file>]
  *   uao benchmark [--json]
  *   uao inspect-ledger <jsonl-path> [--json]
  */
@@ -15,6 +18,10 @@ import { UniversalAgentOptimizer } from '../src/core/optimizer.js';
 import { UniversalTokenLedger } from '../src/observability/token-ledger.js';
 import { createProxyServer } from '../src/proxy/server.js';
 import { runAllBenchmarks } from '../tests/benchmark/run-benchmark.mjs';
+import { msg, resolveLang, t } from '../src/cli/i18n.js';
+import { runSetup } from '../src/cli/setup.js';
+import { runDoctor } from '../src/cli/doctor.js';
+import { runUninstall } from '../src/cli/uninstall.js';
 
 function readPackageVersion() {
   try {
@@ -62,26 +69,38 @@ export function parseArgs(argv = []) {
   };
 }
 
-export function formatHelpText(version = readPackageVersion()) {
+export function formatHelpText(version = readPackageVersion(), lang = 'en') {
   return [
-    `Universal Agent Optimizer CLI v${version}`,
+    msg(lang, 'helpHeader', version),
     '',
-    'Usage:',
+    msg(lang, 'usageTitle'),
+    '  uao setup [--mode dsh|proxy|library] [--profile <name>] [--dry-run] [--yes] [--lang auto|en|zh-CN]',
+    '  uao doctor [--profile <name>] [--config <path>] [--check-connectivity] [--json] [--lang auto|en|zh-CN]',
+    '  uao uninstall [--profile <name>] [--config <path>] [--purge-data] [--dry-run] [--yes] [--lang auto|en|zh-CN]',
     '  uao proxy --upstream <url> [--port 8787] [--host 127.0.0.1] [--provider openai] [--ledger <file>]',
     '  uao benchmark [--json]',
     '  uao inspect-ledger <jsonl-path> [--json]',
     '  uao --help | --version',
     '',
-    'Examples:',
-    '  npx uao proxy --upstream https://api.openai.com --port 8787',
-    '  npx uao benchmark --json',
-    '  npx uao inspect-ledger ./data/ledger.jsonl',
+    msg(lang, 'examplesTitle'),
+    '  uao setup --mode proxy --upstream https://api.openai.com',
+    '  uao doctor --json',
+    '  uao proxy --upstream https://api.openai.com --port 8787',
+    '  uao benchmark --json',
+    '  uao inspect-ledger ./data/ledger.jsonl',
+    '',
+    t(
+      lang,
+      'Note: If invoking via npm exec after publishing, use: npm exec --yes --package=universal-agent-optimizer -- uao --help',
+      '提示：发布到 npm 后如需通过 npm exec 调用，请使用：npm exec --yes --package=universal-agent-optimizer -- uao --help'
+    ),
   ].join('\n');
 }
 
 export async function runCli(argv = [], io = { stdout: console.log, stderr: console.error }) {
   const { command, positionals, flags } = parseArgs(argv);
   const version = readPackageVersion();
+  const lang = resolveLang(flags.lang);
 
   if (flags.version || command === 'version') {
     io.stdout(version);
@@ -89,9 +108,21 @@ export async function runCli(argv = [], io = { stdout: console.log, stderr: cons
   }
 
   if (flags.help || command === 'help') {
-    const text = formatHelpText(version);
+    const text = formatHelpText(version, lang);
     io.stdout(text);
     return { code: 0, output: text };
+  }
+
+  if (command === 'setup') {
+    return runSetup(flags, io, lang);
+  }
+
+  if (command === 'doctor') {
+    return runDoctor(flags, io, lang);
+  }
+
+  if (command === 'uninstall') {
+    return runUninstall(flags, io, lang);
   }
 
   if (command === 'benchmark') {
@@ -101,7 +132,13 @@ export async function runCli(argv = [], io = { stdout: console.log, stderr: cons
       io.stdout(json);
       return { code: 0, report };
     }
-    const lines = ['=== Universal Agent Optimizer Benchmark (SIMULATED, ZERO API SPEND) ==='];
+    const lines = [
+      t(
+        lang,
+        '=== Universal Agent Optimizer Benchmark (SIMULATED, ZERO API SPEND) ===',
+        '=== Universal Agent Optimizer 基准测试（纯模拟，零 API 费用）==='
+      ),
+    ];
     for (const s of report.scenarios) {
       lines.push(
         `${s.id} [${s.model}] ${s.name}: Base=$${s.baseline.cost.toFixed(5)} -> Opt=$${(s.optimized.cost + s.optimized.overheadCost).toFixed(5)} | NetSave=${s.optimized.savingsPct.toFixed(1)}% | TaskOK=${(s.optimized.taskSuccessRate * 100).toFixed(0)}%`
@@ -115,15 +152,15 @@ export async function runCli(argv = [], io = { stdout: console.log, stderr: cons
   if (command === 'inspect-ledger') {
     const target = positionals[1] || flags.file;
     if (!target || typeof target !== 'string') {
-      const msg = 'inspect-ledger: <jsonl-path> is required';
-      io.stderr(msg);
-      return { code: 1, error: msg };
+      const errText = msg(lang, 'missingLedgerPath');
+      io.stderr(errText);
+      return { code: 1, error: errText };
     }
     const resolved = path.resolve(target);
     if (!fs.existsSync(resolved)) {
-      const msg = `inspect-ledger: file not found: ${resolved}`;
-      io.stderr(msg);
-      return { code: 1, error: msg };
+      const errText = msg(lang, 'ledgerNotFound', resolved);
+      io.stderr(errText);
+      return { code: 1, error: errText };
     }
     const ledger = new UniversalTokenLedger({ file: resolved });
     const summary = ledger.summary();
@@ -146,9 +183,9 @@ export async function runCli(argv = [], io = { stdout: console.log, stderr: cons
   if (command === 'proxy') {
     const upstreamBaseUrl = String(flags.upstream || process.env.UAO_UPSTREAM_URL || '').trim();
     if (!upstreamBaseUrl) {
-      const msg = 'proxy: --upstream <url> (or UAO_UPSTREAM_URL) is required';
-      io.stderr(msg);
-      return { code: 1, error: msg };
+      const errText = msg(lang, 'missingUpstream');
+      io.stderr(errText);
+      return { code: 1, error: errText };
     }
     const port = Number(flags.port ?? process.env.UAO_PORT ?? 8787);
     const host = String(flags.host || process.env.UAO_HOST || '127.0.0.1');
@@ -165,7 +202,7 @@ export async function runCli(argv = [], io = { stdout: console.log, stderr: cons
 
     const address = server.address();
     const actualPort = typeof address === 'object' && address ? address.port : port;
-    io.stdout(`Universal Agent Optimizer proxy listening on http://${host}:${actualPort} -> ${upstreamBaseUrl} (provider=${provider})`);
+    io.stdout(msg(lang, 'proxyListening', { host, port: actualPort, upstreamBaseUrl, provider }));
 
     return {
       code: 0,
@@ -176,21 +213,19 @@ export async function runCli(argv = [], io = { stdout: console.log, stderr: cons
     };
   }
 
-  const msg = `Unknown command: ${command}\n\n${formatHelpText(version)}`;
-  io.stderr(msg);
-  return { code: 1, error: msg };
+  const errText = `${msg(lang, 'unknownCommand', command)}\n\n${formatHelpText(version, lang)}`;
+  io.stderr(errText);
+  return { code: 1, error: errText };
 }
 
-const isMain = process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process.argv[1])).href;
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
 if (isMain) {
-  const result = await runCli(process.argv.slice(2));
-  if (result.code !== 0) {
-    process.exitCode = result.code;
-  } else if (result.server) {
-    const shutdown = () => {
-      result.server.close(() => process.exit(0));
-    };
-    process.on('SIGINT', shutdown);
-    process.on('SIGTERM', shutdown);
-  }
+  runCli(process.argv.slice(2)).then((res) => {
+    if (res && res.code && res.code !== 0) {
+      process.exitCode = res.code;
+    }
+  }).catch((err) => {
+    console.error(err);
+    process.exitCode = 1;
+  });
 }
