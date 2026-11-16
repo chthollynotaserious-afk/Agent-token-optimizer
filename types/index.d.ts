@@ -481,3 +481,15 @@ export function computeBundleHash(records?: Array<Record<string, unknown>>): str
 export function createExportBundle(records?: Array<Record<string, unknown>>, scope?: Record<string, string> | null): Record<string, unknown>;
 export function verifyImportBundle(bundle: Record<string, unknown>): boolean;
 export function executeAuditableDeletion(storeMap: Map<string, Record<string, unknown>>, opts?: Record<string, unknown>): Record<string, unknown>;
+
+export function computeKeywordRelevance(queryText: string, content: unknown): number;
+
+export class MemoryRetriever {
+  constructor(opts: { provider: MemoryProvider; auditLog?: AuditLog | null; minRelevanceScore?: number; weights?: Record<string, number> });
+  retrieve(opts?: Record<string, unknown>): Promise<Record<string, unknown>>;
+}
+
+export class MemoryInjectionPlanner {
+  constructor(opts?: { enabled?: boolean; maxMemoryTokens?: number; maxItems?: number });
+  planInjection(opts?: Record<string, unknown>): Record<string, unknown>;
+}

@@ -87,3 +87,8 @@ export {
   verifyImportBundle,
   executeAuditableDeletion,
 } from './memory/deletion-and-backup.js';
+export {
+  computeKeywordRelevance,
+  MemoryRetriever,
+} from './memory/retriever.js';
+export { MemoryInjectionPlanner } from './memory/injection-budget.js';
