@@ -444,3 +444,40 @@ export function createProxyServer(opts: {
   provider?: string;
   fetchImpl?: typeof fetch;
 }): http.Server;
+
+export const MEMORY_KINDS: readonly string[];
+export const DERIVED_MEMORY_KINDS: Set<string>;
+export const EPISTEMIC_STATUSES: readonly string[];
+export const RECORD_STATUSES: readonly string[];
+export function redactMemorySecrets(text: string): string;
+export function computeContentHash(content: unknown): string;
+export function createMemoryRecord(input: Record<string, unknown>): Record<string, unknown>;
+export function assertDerivedUpdateAllowed(existingRecord: Record<string, unknown>, patch?: Record<string, unknown>): void;
+
+export const SCOPE_DIMENSIONS: readonly string[];
+export function normalizeScope(rawScope: unknown): Record<string, string> | null;
+export function deriveScopeKey(rawScope: unknown): string | null;
+export function canAccessMemoryScope(record: Record<string, unknown>, requestScopeInput: unknown, opts?: Record<string, unknown>): boolean;
+
+export class MemoryProvider {
+  capabilities(): Record<string, unknown>;
+  health(): Promise<Record<string, unknown>>;
+  writeRecord(input: Record<string, unknown>, opts?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  readRecord(id: string, scope: Record<string, string>, opts?: Record<string, unknown>): Promise<Record<string, unknown> | null>;
+  queryRecords(query: Record<string, unknown>, scope: Record<string, string>, opts?: Record<string, unknown>): Promise<Array<Record<string, unknown>>>;
+  updateDerivedRecord(id: string, patch: Record<string, unknown>, expectedVersion: number, scope: Record<string, string>, opts?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  listSources(scope: Record<string, string>, opts?: Record<string, unknown>): Promise<string[]>;
+  deleteRecords(selector: Record<string, unknown>, scope: Record<string, string>, policy?: Record<string, unknown>, opts?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  exportBundle(scope: Record<string, string>, opts?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  importBundle(bundle: Record<string, unknown>, opts?: Record<string, unknown>): Promise<Record<string, unknown>>;
+}
+
+export class InMemoryMemoryProvider extends MemoryProvider {
+  constructor(opts?: { auditLog?: AuditLog | null });
+  getVersionHistory(id: string, scope: Record<string, string>, opts?: Record<string, unknown>): Promise<Array<Record<string, unknown>>>;
+}
+
+export function computeBundleHash(records?: Array<Record<string, unknown>>): string;
+export function createExportBundle(records?: Array<Record<string, unknown>>, scope?: Record<string, string> | null): Record<string, unknown>;
+export function verifyImportBundle(bundle: Record<string, unknown>): boolean;
+export function executeAuditableDeletion(storeMap: Map<string, Record<string, unknown>>, opts?: Record<string, unknown>): Record<string, unknown>;

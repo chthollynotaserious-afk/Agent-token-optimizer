@@ -60,3 +60,30 @@ export { CacheTracker } from './observability/cache-tracker.js';
 export { AuditLog } from './observability/audit-log.js';
 
 export { createProxyServer } from './proxy/server.js';
+
+export {
+  MEMORY_KINDS,
+  DERIVED_MEMORY_KINDS,
+  EPISTEMIC_STATUSES,
+  RECORD_STATUSES,
+  redactMemorySecrets,
+  computeContentHash,
+  createMemoryRecord,
+  assertDerivedUpdateAllowed,
+} from './memory/schema.js';
+export {
+  SCOPE_DIMENSIONS,
+  normalizeScope,
+  deriveScopeKey,
+  canAccessMemoryScope,
+} from './memory/scope.js';
+export {
+  MemoryProvider,
+  InMemoryMemoryProvider,
+} from './memory/provider-contract.js';
+export {
+  computeBundleHash,
+  createExportBundle,
+  verifyImportBundle,
+  executeAuditableDeletion,
+} from './memory/deletion-and-backup.js';
