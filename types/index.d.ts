@@ -493,3 +493,15 @@ export class MemoryInjectionPlanner {
   constructor(opts?: { enabled?: boolean; maxMemoryTokens?: number; maxItems?: number });
   planInjection(opts?: Record<string, unknown>): Record<string, unknown>;
 }
+
+export class MemoryAssociationIndex {
+  addEdge(opts?: Record<string, unknown>): Record<string, unknown>;
+  queryNeighbors(nodeId: string, scope: Record<string, string>, opts?: Record<string, unknown>): Array<Record<string, unknown>>;
+  removeEdgesForRecords(recordIds: string[], scope: Record<string, string>, opts?: Record<string, unknown>): number;
+}
+
+export class MemoryConsolidator {
+  constructor(opts: { provider: MemoryProvider; associationIndex?: MemoryAssociationIndex | null; ledger?: UniversalTokenLedger | null; auditLog?: AuditLog | null; maxRetries?: number; maxQueueSize?: number });
+  enqueueConsolidation(job?: Record<string, unknown>): Record<string, unknown>;
+  consolidateScope(opts?: Record<string, unknown>): Promise<Record<string, unknown>>;
+}

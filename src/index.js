@@ -92,3 +92,5 @@ export {
   MemoryRetriever,
 } from './memory/retriever.js';
 export { MemoryInjectionPlanner } from './memory/injection-budget.js';
+export { MemoryAssociationIndex } from './memory/association.js';
+export { MemoryConsolidator } from './memory/consolidator.js';
