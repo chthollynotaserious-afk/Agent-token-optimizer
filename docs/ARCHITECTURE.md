@@ -72,6 +72,23 @@ flowchart LR
     classDef api fill:#121C2E,stroke:#7FC8D8,stroke-width:1.5px,color:#7FC8D8
     classDef store fill:#141F33,stroke:#8899B8,stroke-width:1.5px,stroke-dasharray:5 5,color:#C9D4E6
 ```
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'background':'#0C1524','primaryColor':'#1B2A44','primaryTextColor':'#E7ECF6','primaryBorderColor':'#E8A464','lineColor':'#E8A464','fontFamily':'PingFang SC, Microsoft YaHei, Noto Sans CJK SC'}}}%%
+flowchart LR
+    S1["1 加锁"]
+    S2["2 沉淀记忆"]
+    S3["3 校验落盘"]
+    S4["4 生成交接包"]
+    S5["5 切换新会话"]
+    S6["6 验证恢复"]
+    S7["7 确认提交"]
+
+    S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7
+    S7 -.->|任一步失败即回滚| S1
+
+    classDef step fill:#1B2A44,stroke:#E8A464,stroke-width:1.5px,color:#E7ECF6
+    class S1,S2,S3,S4,S5,S6,S7 step
+```
 
 ### 1. Embedded Mode (In-Process Library)
 - **Best for:** Custom Node.js / Python agents, LangGraph nodes, and agent runtimes that own their own memory and control loops.
