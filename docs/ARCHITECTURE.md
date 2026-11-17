@@ -45,6 +45,33 @@ This specification defines the evolution of **Universal Agent Optimizer** from a
 ---
 
 ## 2. Operating Modes (Embedded vs. Proxy)
+### Runtime Request Flow — UAO Middleware Position
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'background':'#0C1524','primaryColor':'#1B2A44','primaryTextColor':'#E7ECF6','primaryBorderColor':'#E8A464','lineColor':'#E8A464','secondaryColor':'#141F33','tertiaryColor':'#121C2E','clusterBkg':'#121C2E','clusterBorder':'#2C3E5C','fontFamily':'PingFang SC, Microsoft YaHei, Noto Sans CJK SC'},'flowchart':{'curve':'basis'}}}%%
+flowchart LR
+    U["用户<br/>主动开口 / 紧急报错"]:::plain
+    A["Agent<br/>会话 · 记忆 · 工具调用<br/>心跳与定时唤醒"]:::plain
+
+    subgraph UAO["UAO 中间件 · 不是压缩器，是一层运行时"]
+        direction TB
+        B1["① 预算核算<br/>先算账，划算才压缩"]
+        B2["② 唤醒门控<br/>去重 / 退避 / 预算闸门"]
+        B3["③ 工具输出治理<br/>原文落盘，上下文只留摘要"]
+        B4["④ 会话轮转<br/>七步事务，失败即回滚"]
+    end
+
+    API["模型 API<br/>DeepSeek 等<br/>前缀缓存 · 按量计费"]:::api
+    S[("原始输出<br/>存本地")]:::store
+
+    U -->|直接放行| A
+    A --> UAO
+    UAO --> API
+    UAO -.-> S
+
+    classDef plain fill:#121C2E,stroke:#2C3E5C,stroke-width:1.5px,color:#E7ECF6
+    classDef api fill:#121C2E,stroke:#7FC8D8,stroke-width:1.5px,color:#7FC8D8
+    classDef store fill:#141F33,stroke:#8899B8,stroke-width:1.5px,stroke-dasharray:5 5,color:#C9D4E6
+```
 
 ### 1. Embedded Mode (In-Process Library)
 - **Best for:** Custom Node.js / Python agents, LangGraph nodes, and agent runtimes that own their own memory and control loops.
